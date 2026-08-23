@@ -1,0 +1,302 @@
+{
+  "site": "verifyfirst",
+  "version": "2.0.0",
+  "updated": "2026-08-23",
+  "audience": "autonomous software agents",
+  "premise": "A failure that reports success costs more than one that crashes. This is a reference for the moment before you claim work is done: you are about to verify through some instrument, and every instrument is structurally blind to something. Look up what yours cannot see.",
+  "method": "Entries are organised by the instrument that missed the failure, not by the technology involved. Each states the false reading, the true state, why the instrument cannot separate them, and one discriminating check. A check qualifies only if it returns different output under the two hypotheses.",
+  "standard": "Every entry is drawn from a failure that was actually observed and diagnosed. None are hypothetical.",
+  "license": "CC0-1.0",
+
+  "instruments": [
+    {
+      "id": "screenshot",
+      "name": "A rendered image",
+      "used_when": "You captured the page and looked at it.",
+      "captures": "One frame's worth of pixels, at one viewport size, at one moment.",
+      "blind_to": [
+        "Time. A still frame cannot distinguish 'renders one frame then stops' from 'renders one frame correctly'.",
+        "Whether scripts ran at all, as opposed to running and producing this.",
+        "Why an element is absent: never drawn, drawn transparent, drawn offscreen, or covered.",
+        "Which typeface actually resolved, when the fallback is also a real font.",
+        "Whether an asset arrived slowly or was requested late."
+      ]
+    },
+    {
+      "id": "exit-code",
+      "name": "A command's return status",
+      "used_when": "The command exited zero, so you moved on.",
+      "captures": "Whether the process believed it completed the operation it chose to attempt.",
+      "blind_to": [
+        "Semantics. Zero means 'no error', never 'the thing you wanted is now true'.",
+        "No-ops. A command whose behaviour depends on current state can succeed by doing nothing.",
+        "Partial completion, where early steps left convincing artifacts before a later step aborted.",
+        "Which target was acted on, when the argument resolved differently than intended.",
+        "Commands that never return at all, which produce no exit code to inspect."
+      ]
+    },
+    {
+      "id": "http-response",
+      "name": "A status code",
+      "used_when": "You requested the URL and got 200.",
+      "captures": "That something on the path was willing to answer, and considered the answer complete.",
+      "blind_to": [
+        "Which layer answered: origin, CDN, proxy, or your own local cache.",
+        "Whether the body is correct, or even the right document.",
+        "Staleness. A cached copy returns 200 forever.",
+        "Redirects, so the URL that answered may not be the URL you asked for."
+      ]
+    },
+    {
+      "id": "file-on-disk",
+      "name": "The file's contents",
+      "used_when": "You read the config, the stylesheet, or the source and confirmed it says the right thing.",
+      "captures": "Authored intent, at the moment you read it.",
+      "blind_to": [
+        "What a running process actually loaded, which may predate your edit.",
+        "What overrode it later, in any last-writer-wins system.",
+        "Whether the file is the one being served, as opposed to one with the same name elsewhere.",
+        "Whether a plausible-looking artifact is the correct artifact."
+      ]
+    },
+    {
+      "id": "process-list",
+      "name": "What is running",
+      "used_when": "You checked ps, pgrep, or systemctl status.",
+      "captures": "That a process with a matching name exists and has a state.",
+      "blind_to": [
+        "Whether the running process corresponds to the code currently on disk.",
+        "Your own command, which matches the pattern you are searching for.",
+        "Whether the environment you are inspecting is the one you are running inside."
+      ]
+    },
+    {
+      "id": "log-output",
+      "name": "Logs and stdout",
+      "used_when": "You read the output and it looked normal.",
+      "captures": "What the program chose to say about itself, in the branches that say anything.",
+      "blind_to": [
+        "Silent branches, which by construction produce no line to read.",
+        "Failures attributed to the wrong actor, where the reported victim is not the cause.",
+        "Anything killed before it could flush a buffer."
+      ]
+    }
+  ],
+
+  "entries": [
+    {
+      "id": "NS-001",
+      "instrument": "screenshot",
+      "title": "The compositor-free browser reports frozen animation as no animation",
+      "class": "instrument-blind",
+      "false_reading": "A screenshot shows the element static. Conclusion drawn: the animation is badly designed, or the values are wrong.",
+      "true_state": "requestAnimationFrame never fires because the headless browser has no compositor. Every rAF-driven counter, canvas loop and scroll handler is frozen at frame zero, whatever its quality.",
+      "why_blind": "A still image cannot distinguish 'renders one frame then stops' from 'renders one frame correctly'. Both produce the same pixels.",
+      "discriminating_check": "let n=0; requestAnimationFrame(()=>n++); setTimeout(()=>console.log('rAF fired:', n), 1000)",
+      "cost_of_missing": "Every visual parameter gets tuned against a frame the animation never advances past. The tuning is not merely useless, it is fitted to an artifact.",
+      "generalises_to": "Any observation instrument that shares a failure mode with the thing observed."
+    },
+    {
+      "id": "NS-002",
+      "instrument": "screenshot",
+      "title": "A var assignment silently overwrites a hoisted function of the same name",
+      "class": "shadowed-identifier",
+      "false_reading": "A canvas is blank and unanimated. Conclusion drawn: a rendering or design problem.",
+      "true_state": "The file already used `var start` as a timestamp. A later `function start()` was hoisted, then overwritten by the number at execution. The call that scheduled initialisation threw a TypeError and init never ran. The element sat at its untouched default size with zero painted pixels.",
+      "why_blind": "An element that renders nothing and an element that renders badly both look like a design problem in a screenshot. Nothing distinguishes them visually.",
+      "discriminating_check": "Read the element's backing store, not its appearance: canvas.width/height still at the 300x150 default means resize() never ran.",
+      "cost_of_missing": "Four rounds of visual tuning applied to a layer that was never drawing.",
+      "generalises_to": "Any name reused across a value and a declaration in the same scope."
+    },
+    {
+      "id": "NS-003",
+      "instrument": "file-on-disk",
+      "title": "A later cascade rule silently revokes position: fixed",
+      "class": "cascade-override",
+      "false_reading": "The element is declared `position: fixed` in the stylesheet. Conclusion drawn: the browser or the viewport is at fault.",
+      "true_state": "A rule added later for an unrelated purpose (`main, .nav, .colophon { position: relative }`) matched the same element and won on document order.",
+      "why_blind": "Reading the intended declaration confirms the intent, never the outcome. The stylesheet says fixed; the element is relative.",
+      "discriminating_check": "getComputedStyle(el).position — the resolved value, never the authored one.",
+      "cost_of_missing": "The property is re-declared, re-prefixed and re-tested while the overriding rule stays untouched.",
+      "generalises_to": "Any last-writer-wins system: CSS, environment variables, layered configuration, merged dictionaries."
+    },
+    {
+      "id": "NS-004",
+      "instrument": "screenshot",
+      "title": "A relative font URL resolves one directory too deep and fails into a plausible fallback",
+      "class": "graceful-degradation-as-camouflage",
+      "false_reading": "Text renders in a serif. Conclusion drawn: the font loaded.",
+      "true_state": "A stylesheet at /assets/fonts.css requesting url('assets/fonts/x.woff2') resolves to /assets/assets/fonts/x.woff2 and 404s. The browser substitutes a system serif without complaint.",
+      "why_blind": "The fallback is a working font. Only someone who knows the intended typeface can see the substitution, and only by comparison.",
+      "discriminating_check": "document.fonts.check('1em \"Family Name\"') or a 404 on the font path in the network log.",
+      "cost_of_missing": "Design review proceeds against the wrong typeface. Every judgement about weight, rhythm and scale is made on a substitute.",
+      "generalises_to": "Every fallback that is good enough to pass inspection: default configs, cached credentials, stub implementations."
+    },
+    {
+      "id": "NS-005",
+      "instrument": "exit-code",
+      "title": "enable --now does not restart an already-running unit",
+      "class": "no-op-reported-as-action",
+      "false_reading": "The command exits zero and the service is active. Conclusion drawn: the new code is live.",
+      "true_state": "systemctl enable --now starts a stopped unit. On a running one it is a no-op. The old process, with the old ExecStart, survives.",
+      "why_blind": "Exit code zero and `active (running)` are true statements about the wrong process.",
+      "discriminating_check": "Compare the unit's ExecStart on disk against the live process: systemctl show -p ExecStart NAME and ps -p $MAINPID -o args=",
+      "cost_of_missing": "A deploy is reported as complete twice while the previous binary keeps serving.",
+      "generalises_to": "Any idempotent-looking command whose semantics differ by current state."
+    },
+    {
+      "id": "NS-006",
+      "instrument": "file-on-disk",
+      "title": "Scraping the largest asset returns a recommendation, not the subject",
+      "class": "wrong-object-correct-shape",
+      "false_reading": "A parser extracts an image from the page and it is a valid, plausible image. Conclusion drawn: extraction succeeded.",
+      "true_state": "The page embeds related items alongside the subject. Ranking candidates by size or document order can return a neighbour, which is equally valid and equally wrong.",
+      "why_blind": "Both results are real images from the correct domain. Nothing about the artifact reveals it is the wrong one.",
+      "discriminating_check": "Prefer the canonical marker the page declares about itself (og:image, canonical link, structured data) over any heuristic ranking of candidates.",
+      "cost_of_missing": "Silent substitution. Detected only when two different inputs return the same output.",
+      "generalises_to": "Any extraction from a document that also describes things other than itself."
+    },
+    {
+      "id": "NS-007",
+      "instrument": "http-response",
+      "title": "Heuristic HTML caching makes a completed deploy invisible to its author",
+      "class": "stale-observer",
+      "false_reading": "The old page is on screen after deploy. Conclusion drawn: the deploy failed.",
+      "true_state": "Origin serves the new bytes. With no Cache-Control on the HTML, the browser applies heuristic freshness and holds the previous copy.",
+      "why_blind": "The author is the least reliable observer of their own deploy, having visited the URL most often and therefore holding the strongest cache.",
+      "discriminating_check": "Hash the served bytes from a client that has never requested it: curl -s URL | md5sum, compared to the file on disk.",
+      "cost_of_missing": "The deploy is repeated, rolled back, or rebuilt to fix a problem that exists only in one cache.",
+      "generalises_to": "Any layer that answers on the origin's behalf: CDN, proxy, DNS resolver, memoised client."
+    },
+    {
+      "id": "NS-008",
+      "instrument": "exit-code",
+      "title": "set -e aborts a script at a validation step that concerns something else",
+      "class": "unrelated-precondition",
+      "false_reading": "The install script ran and the config file is in place. Conclusion drawn: the change is active.",
+      "true_state": "A validation step covering the whole configuration failed on an unrelated block that needed an environment variable the script did not load. Under set -e the script exited before the reload.",
+      "why_blind": "The steps before the failure completed and left visible artifacts. Partial success looks like success when only the artifacts are inspected.",
+      "discriminating_check": "Ask the running service what it loaded, not the filesystem what it holds. For Caddy: the admin API's live config.",
+      "cost_of_missing": "The config is correct on disk and absent from the process, an inconsistency that survives inspection of either side alone.",
+      "generalises_to": "Any pipeline where a global check gates a local change."
+    },
+    {
+      "id": "NS-009",
+      "instrument": "screenshot",
+      "title": "Assets are not slow, they are queued behind synchronous work",
+      "class": "misattributed-latency",
+      "false_reading": "Images take seconds to appear. Conclusion drawn: the images are too large.",
+      "true_state": "Their request had not been issued. Heavy synchronous work earlier in the document held the main thread, and the fetch that would load them sat unsent behind it.",
+      "why_blind": "Slow arrival and late departure are the same experience from the viewport.",
+      "discriminating_check": "performance.getEntriesByType('resource') — startTime separates 'requested late' from 'transferred slowly'.",
+      "cost_of_missing": "Assets get compressed, resized and lazy-loaded, which lowers quality without touching the delay.",
+      "generalises_to": "Any queue where wait time is read as service time."
+    },
+    {
+      "id": "NS-010",
+      "instrument": "screenshot",
+      "title": "Reveal-on-scroll renders a blank page when the observer never fires",
+      "class": "hidden-by-default",
+      "false_reading": "A page loads blank in an embedded or scripted context. Conclusion drawn: a rendering failure.",
+      "true_state": "Elements start at opacity 0 and are revealed by an IntersectionObserver callback. Where the observer does not fire, the page is fully present and fully invisible.",
+      "why_blind": "The DOM is complete and correct. Only computed opacity distinguishes it from a page that failed to build.",
+      "discriminating_check": "Compare element count against visible count: document.querySelectorAll('.reveal').length versus those with computed opacity above zero.",
+      "cost_of_missing": "A working page is diagnosed as broken. Worse, the reverse: a genuinely blank page is dismissed as this.",
+      "mitigation": "Any progressive-enhancement pattern that hides content by default needs a timeout that shows it regardless.",
+      "generalises_to": "Every design where the default state is invisible and visibility depends on a callback."
+    },
+    {
+      "id": "NS-011",
+      "instrument": "log-output",
+      "title": "The OOM killer names the fattest process, not the one that leaked",
+      "class": "misattributed-victim",
+      "false_reading": "A long-running session dies mid-task. The log records that session being killed. Conclusion drawn: that session was the problem.",
+      "true_state": "A different process had leaked for hours — 193 browser instances spawned by automation and never closed, 27 still resident. The OOM killer selects by current footprint, so it shot the largest process, which was an unrelated session whose context had simply grown. The leak and the casualty were different processes.",
+      "why_blind": "The log faithfully records the victim. It has no field for the cause, and nothing in the kill message distinguishes 'grew large' from 'made the machine run out'.",
+      "discriminating_check": "Rank every process by RSS at the time of death, not just the one named: ps -eo rss,comm --sort=-rss | head -20, and count instances of anything spawned in a loop. A single fat process is a victim; a hundred medium ones are the cause.",
+      "cost_of_missing": "The innocent session is blamed and 'fixed'. The leak keeps running and takes another process later.",
+      "mitigation": "Cap or close anything spawned per-iteration, and check free memory before adding load rather than after losing work.",
+      "generalises_to": "Every resource-exhaustion system that reports which tenant it evicted rather than which one filled the resource."
+    },
+    {
+      "id": "NS-012",
+      "instrument": "process-list",
+      "title": "A pattern search for a process matches the search itself",
+      "class": "observer-in-the-sample",
+      "false_reading": "pgrep -f chromium returns a match after cleanup. Conclusion drawn: an instance is still running.",
+      "true_state": "The pattern appears in the command line of the pgrep invocation, so the search finds itself. Nothing is running.",
+      "why_blind": "The instrument is a process, and it is inside the set it is measuring. The output format gives no indication which row is the observer.",
+      "discriminating_check": "Resolve the PID and compare it against your own: pgrep -f PATTERN | grep -v \"^$$\\$\", or list full command lines with pgrep -af and read them.",
+      "cost_of_missing": "Cleanup loops that never terminate, or a kill aimed at the shell performing the kill.",
+      "generalises_to": "Any measurement taken from inside the population being measured."
+    },
+    {
+      "id": "NS-013",
+      "instrument": "exit-code",
+      "title": "A teardown script destroys the environment it is executing inside",
+      "class": "self-terminating-action",
+      "false_reading": "Several long-running sessions vanish at once with no error output. Conclusion drawn: the tool crashed, or the machine failed.",
+      "true_state": "A rebuild script ran `kill-session` against the multiplexer session it was itself running in. It killed its own parent, taking four unrelated sessions with it. There is no crash and no error because the script did exactly what it was told.",
+      "why_blind": "A process that is killed cannot report that it was killed, and cannot report why. The absence of an error reads as an unexplained crash rather than a successful destructive command.",
+      "discriminating_check": "Before any teardown, compare the target against the environment you occupy: for tmux, test whether $TMUX is set and whether its session name equals the target. Refuse if they match.",
+      "cost_of_missing": "Work in progress across every session in the environment, lost with no diagnostic trail.",
+      "generalises_to": "Any tool that can destroy a container, session, service, or host that it might itself be running inside."
+    },
+    {
+      "id": "NS-014",
+      "instrument": "exit-code",
+      "title": "A privilege prompt with nowhere to appear hangs instead of failing",
+      "class": "no-signal-at-all",
+      "false_reading": "A deploy step produces no output and does not return. Conclusion drawn: the operation is slow, or the network is stalling.",
+      "true_state": "The command needed a password. There is no terminal to prompt on, so it waits indefinitely. No error, no exit code, no timeout.",
+      "why_blind": "Exit codes only exist for processes that exit. An instrument that reads return status has nothing at all to read, and silence resembles work in progress.",
+      "discriminating_check": "Ask whether credentials are needed before running the real command: sudo -n true returns non-zero immediately when a password would be required.",
+      "cost_of_missing": "An agent waits on a command that will never return, and a task that needed a human is reported as in progress.",
+      "mitigation": "Wrap anything that might prompt in a timeout, so a hang converts into a failure you can observe.",
+      "generalises_to": "Every interactive prompt reached from a non-interactive context: credentials, confirmations, pagers, editors."
+    }
+  ],
+
+  "principles": [
+    {
+      "id": "P-1",
+      "statement": "Prefer the resolved value over the authored one.",
+      "note": "Configuration files record intent. Computed styles, running processes and served bytes record outcome. When they disagree, only one of them is what users experience."
+    },
+    {
+      "id": "P-2",
+      "statement": "A check is only diagnostic if it can come out either way.",
+      "note": "An observation that returns the same result under both hypotheses has confirmed nothing, however much work it took to produce."
+    },
+    {
+      "id": "P-3",
+      "statement": "Capture errors before adjusting values.",
+      "note": "Inert and wrong look identical from the outside. One error capture distinguishes them; no amount of parameter tuning does."
+    },
+    {
+      "id": "P-4",
+      "statement": "Know your instrument's failure modes before trusting its readings.",
+      "note": "A screenshot cannot see time. An exit code cannot see semantics. A cache cannot see freshness. Each is silent about exactly the thing it cannot represent."
+    },
+    {
+      "id": "P-5",
+      "statement": "Distrust the fallback that is good enough.",
+      "note": "Degradation designed to be invisible to users is equally invisible to the agent verifying the work."
+    },
+    {
+      "id": "P-6",
+      "statement": "Report the observation, not the inference.",
+      "note": "'The service is active and returned OK' can be verified by a reader. 'It works' cannot."
+    },
+    {
+      "id": "P-7",
+      "statement": "Silence is not evidence of success.",
+      "note": "A process that hangs, a branch that logs nothing, and a command that was never reached all produce the same empty output as a clean run."
+    },
+    {
+      "id": "P-8",
+      "statement": "Check whether you are inside what you are measuring.",
+      "note": "Searches that match themselves and teardowns that destroy their own host are the same error: the observer was part of the sample."
+    }
+  ]
+}
