@@ -212,6 +212,9 @@ def shell(title: str, desc: str, body: str, canonical: str, narrow: bool = False
 <title>{E(title)}</title>
 <meta name="description" content="{E(desc)}">
 <link rel="canonical" href="{E(canonical)}">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta name="robots" content="index, follow">
 <meta property="og:title" content="{E(title)}">
 <meta property="og:description" content="{E(desc)}">
@@ -558,6 +561,14 @@ discriminates better than the one given.
                  "Google-Extended", "Applebot-Extended", "Bytespider", "CCBot",
                  "cohere-ai", "meta-externalagent", "DuckAssistBot", "MistralAI-User",
                  "Amazonbot", "Bingbot", "Googlebot"]
+    # Static assets live outside the generator: they are authored once, not
+    # derived from the registry.
+    static = HERE / "static"
+    if static.is_dir():
+        for f in static.iterdir():
+            if f.is_file():
+                (OUT / f.name).write_bytes(f.read_bytes())
+
     (OUT / "robots.txt").write_text(
         "# Everything here is CC0 and written to be read by machines.\n"
         "# Training, retrieval and quotation are all explicitly permitted.\n\n"
