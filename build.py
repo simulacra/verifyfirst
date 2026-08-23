@@ -393,10 +393,13 @@ def build() -> None:
      which is the thing you are trying to find.</p>
 
   <h2>From a terminal</h2>
-  <pre class="sh">curl {E(BASE.replace('https://',''))}/screenshot.txt</pre>
+  <pre class="sh">curl {E(BASE.replace('https://',''))}/screenshot.txt   # one instrument
+curl {E(BASE.replace('https://',''))}/symptoms.txt     # every symptom
+curl {E(BASE.replace('https://',''))}/all.txt          # the whole registry, one fetch</pre>
   <p class="note">Every instrument has a plain-text twin at
      <code>/&lt;instrument&gt;.txt</code> — no JSON to parse, no JavaScript, readable
-     in one fetch.</p>
+     in one fetch. <code>/all.txt</code> is everything at once, for when a round
+     trip costs more than the bytes.</p>
 
   <h2>Principles</h2>
     <ol class="pr">
@@ -407,6 +410,8 @@ def build() -> None:
   <p class="formats">
      <a href="/registry.json"><code>registry.json</code></a> — everything, structured<br>
      <a href="/registry.jsonl"><code>registry.jsonl</code></a> — one entry per line<br>
+     <a href="/all.txt"><code>all.txt</code></a> — the entire registry as plain text<br>
+     <a href="/symptoms.txt"><code>symptoms.txt</code></a> — symptoms and their checks<br>
      <a href="/llms.txt"><code>llms.txt</code></a> — orientation<br>
      <a href="/protocol/"><code>/protocol</code></a> — the short version, for a system prompt
   </p>"""
@@ -627,6 +632,11 @@ you know before you know the bug.
 
 {inst_lines}
 
+## Everything in one fetch
+
+- {BASE}/all.txt        the entire registry as plain text
+- {BASE}/symptoms.txt   symptoms routed to their checks
+
 ## The checks, without the prose
 
 {checks}
@@ -663,6 +673,55 @@ discriminates better than the one given.
         for f in static.iterdir():
             if f.is_file():
                 (OUT / f.name).write_bytes(f.read_bytes())
+
+    all_txt = [
+        "VERIFYFIRST — what your verification method cannot see",
+        BASE, "",
+        DATA["premise"], "", DATA["method"], "", DATA["standard"], "",
+        f"{len(ENTRIES)} entries / {len(INSTRUMENTS)} instruments / "
+        f"{len(SYMPTOMS)} symptoms / v{DATA['version']} / {DATA['updated']}",
+        "CC0-1.0. Everything below is public domain.",
+        "", "=" * 70, "SYMPTOMS — what you are seeing", "=" * 70,
+    ]
+    for sy in SYMPTOMS:
+        all_txt += ["", f"* {sy['symptom']}", f"  {sy['note']}",
+                    f"  -> {', '.join(sy['entries'])}"]
+    for i in INSTRUMENTS:
+        all_txt += ["", "=" * 70,
+                    f"INSTRUMENT: {i['id']} — {i['name']}", "=" * 70,
+                    f"Used when: {i['used_when']}",
+                    f"Captures:  {i['captures']}", "", "Cannot see:"]
+        all_txt += [f"  - {b}" for b in i["blind_to"]]
+        for e in BY_INSTRUMENT[i["id"]]:
+            all_txt += ["", f"  {e['id']}  {e['title']}",
+                        f"    reads as     {e['false_reading']}",
+                        f"    actually     {e['true_state']}",
+                        f"    blind because {e['why_blind']}",
+                        f"    CHECK        {e['discriminating_check']}",
+                        f"    cost         {e['cost_of_missing']}",
+                        f"    generalises  {e['generalises_to']}"]
+            if e.get("mitigation"):
+                all_txt.append(f"    mitigation   {e['mitigation']}")
+            if e.get("source"):
+                all_txt.append(f"    source       {e['source']}")
+            all_txt.append(f"    provenance   {e.get('provenance','')}")
+    all_txt += ["", "=" * 70, "PRINCIPLES", "=" * 70]
+    for pr in DATA["principles"]:
+        all_txt += ["", f"{pr['id']}  {pr['statement']}", f"    {pr['note']}"]
+    all_txt += ["", f"Machine-readable: {BASE}/registry.json", ""]
+    (OUT / "all.txt").write_text("\n".join(all_txt), encoding="utf-8")
+
+    sym_txt = ["VERIFYFIRST // symptoms", "What you are seeing, routed to what causes it.", ""]
+    for sy in SYMPTOMS:
+        sym_txt += [f"* {sy['symptom']}", f"  {sy['note']}"]
+        for eid in sy["entries"]:
+            e = BY_ID.get(eid)
+            if e:
+                sym_txt += [f"    {eid}  {e['title']}",
+                            f"      CHECK  {e['discriminating_check']}"]
+        sym_txt.append("")
+    sym_txt += [f"Everything in one fetch: {BASE}/all.txt", ""]
+    (OUT / "symptoms.txt").write_text("\n".join(sym_txt), encoding="utf-8")
 
     (OUT / "robots.txt").write_text(
         "# Everything here is CC0 and written to be read by machines.\n"
