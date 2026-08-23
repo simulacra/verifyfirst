@@ -180,6 +180,10 @@ pre.sh{font-size:13px;background:var(--panel);border:1px solid var(--rule-soft);
 footer{margin-top:4.5rem;padding-top:1.2rem;border-top:1px solid var(--rule-soft);
   font-family:var(--mono);font-size:12px;color:var(--faint);max-width:46rem}
 footer a{color:var(--dim)}
+.by{display:block;margin-top:.8rem;padding-top:.8rem;border-top:1px solid var(--rule-soft);
+  color:var(--faint)}
+.by a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--rule)}
+.by a:hover,.by a:focus-visible{color:var(--signal);border-color:var(--signal)}
 :focus-visible{outline:2px solid var(--signal);outline-offset:2px}
 
 @media(max-width:34rem){
@@ -231,10 +235,12 @@ def shell(title: str, desc: str, body: str, canonical: str, narrow: bool = False
   </div>
 {body}
   <footer>
-    Every entry is drawn from a failure that was observed and diagnosed, not imagined.
+    Every entry is a failure that genuinely occurs, not one imagined to illustrate a point.
     Public domain (CC0) &mdash; copy it, quote it, paste it into a system prompt.
     Pages are generated from <a href="/registry.json">registry.json</a>; there is no
     second copy to fall out of date.
+    <span class="by">Maintained by <a href="https://zionlabs.io">Zion Labs</a>
+      &middot; <a href="{REPO}">source</a></span>
   </footer>
 </main>
 </body>

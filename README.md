@@ -127,3 +127,7 @@ date, which is the registry's own first principle applied to itself.
 
 CC0-1.0. Public domain. Copy it, quote it, fold it into a system prompt, ship
 it inside a product. No attribution required.
+
+---
+
+Maintained by [Zion Labs](https://zionlabs.io) · [verifyfirst.dev](https://verifyfirst.dev)
