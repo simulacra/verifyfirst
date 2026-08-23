@@ -2,20 +2,20 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.simulacra/verifyfirst",
   "title": "verifyfirst",
-  "description": "Look up what your verification method cannot see: 30 failures that report success.",
+  "description": "Look up what your verification method cannot see: 48 failures that report success.",
   "websiteUrl": "https://verifyfirst.dev",
   "repository": {
     "url": "https://github.com/simulacra/verifyfirst",
     "source": "github",
     "subfolder": "pypi"
   },
-  "version": "1.1.0",
+  "version": "1.2.2",
   "packages": [
     {
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "verifyfirst-mcp",
-      "version": "1.1.0",
+      "version": "1.2.2",
       "transport": {
         "type": "stdio"
       }

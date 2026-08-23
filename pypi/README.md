@@ -9,7 +9,7 @@ the screenshot looks fine, the command exits zero, the endpoint returns 200,
 and the bug ships.
 
 This server exposes [verifyfirst.dev](https://verifyfirst.dev) — a registry of
-30 such failures, organised by the **instrument that missed them** rather than
+48 such failures, organised by the **instrument that missed them** rather than
 by the technology involved, because the instrument is what you know before you
 know the bug.
 

@@ -1,6 +1,6 @@
 {
   "site": "verifyfirst",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "updated": "2026-08-23",
   "audience": "autonomous software agents",
   "premise": "A failure that reports success costs more than one that crashes. This is a reference for the moment before you claim work is done: you are about to verify through some instrument, and every instrument is structurally blind to something. Look up what yours cannot see.",
@@ -526,6 +526,283 @@
       "source": "https://www.w3.org/TR/webdriver2/#errors",
       "provenance": "documented",
       "title_short": "A transparent overlay takes the click you can see land"
+    },
+    {
+      "id": "NS-031",
+      "instrument": "log-output",
+      "title": "A killed process loses the output it produced but never flushed",
+      "title_short": "SIGKILL discards unflushed stdout",
+      "class": "unflushed-buffer",
+      "false_reading": "A worker is killed and its log ends several steps before the operation under investigation. Conclusion drawn: execution never reached that step.",
+      "true_state": "Standard output is block-buffered whenever it does not refer to a terminal, so lines accumulate in a user-space buffer of a few kilobytes until it fills or the process exits cleanly. SIGKILL cannot be caught, blocked or handled, so no flush happens. The steps ran, announced themselves, and the announcements died in the buffer.",
+      "why_blind": "A log records what was flushed, not what was written. A line that was never produced and a line that was produced into a buffer and then discarded are the same absence.",
+      "discriminating_check": "Re-run with buffering removed and kill it the same way: `PYTHONUNBUFFERED=1 prog > out.log` (or `stdbuf -oL` for a C program). Observed on 3.12: a script printing two lines and then sleeping, SIGKILLed two seconds in, left out.log at 0 bytes; the identical run under PYTHONUNBUFFERED=1 left both lines. Output that appears only when unbuffered was being produced all along.",
+      "cost_of_missing": "The investigation moves upstream of the last logged line, which is not where the process was. The fault lives inside the region the log appears to prove was never entered.",
+      "mitigation": "Anything whose log will be read after an abnormal death should be unbuffered at the point of writing; adding it at the point of reading is too late.",
+      "generalises_to": "Every buffered channel inspected after an abrupt stop: stdio, log shippers with in-memory queues, metrics flushed on a timer, traces batched before export.",
+      "source": "https://docs.python.org/3/library/sys.html#sys.stdout",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-032",
+      "instrument": "log-output",
+      "title": "journald discards every message past the burst and files the notice elsewhere",
+      "title_short": "journald drops messages past the burst",
+      "class": "rate-limited-not-absent",
+      "false_reading": "`journalctl -u worker` covers the whole run and contains no error and no completion line. Conclusion drawn: the worker raised no error, and the absent completion line is the anomaly worth chasing.",
+      "true_state": "If more messages than RateLimitBurst are logged by a service inside RateLimitIntervalSec, all further messages within the interval are dropped until the interval is over. The default is 10000 messages in 30s, multiplied by a factor derived from the free disk space available to the journal. Everything the service says after the burst is exhausted is discarded, including the line that mattered.",
+      "why_blind": "The stored records are contiguous and well-formed; the log simply stops and later resumes. A message about the number of dropped messages is generated, but by journald under its own identity, so a query filtered to the unit does not show it — and a reader outside the systemd-journal and adm groups cannot see it at all.",
+      "discriminating_check": "Count what the producer emitted against what the journal stored. Observed on this host: a transient unit emitting 120,001 numbered lines in 2.1s stored 37,499 of them — line 1 through line 37,499 and then nothing at all, with the final line absent and no suppression notice visible under `journalctl --user -u NAME`.",
+      "cost_of_missing": "A verbose service is treated as a well-instrumented one, and its silence during the interesting minute is read as calm rather than as the direct consequence of its own verbosity.",
+      "mitigation": "LogRateLimitIntervalSec= and LogRateLimitBurst= can be raised per unit, but a service logging at that rate needs to log less rather than louder.",
+      "generalises_to": "Every sampled or throttled telemetry path: metrics agents, trace sampling, syslog rate limits, ingestion quotas in hosted log services.",
+      "source": "https://man7.org/linux/man-pages/man5/journald.conf.5.html",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-033",
+      "instrument": "log-output",
+      "title": "basicConfig does nothing once anything has already touched the root logger",
+      "title_short": "basicConfig declines to reconfigure",
+      "class": "configuration-silently-declined",
+      "false_reading": "`logging.basicConfig(level=logging.DEBUG)` runs at the top of main() and the program still emits only warnings. Conclusion drawn: the instrumented branches are not being reached, or the level argument is wrong.",
+      "true_state": "The function does nothing if the root logger already has handlers configured, unless force is set to True. One earlier call to logging.warning(), one imported library that logs during import, or one framework that configures logging first, installs a handler; every later basicConfig call is then a no-op and the root level stays at WARNING.",
+      "why_blind": "The call raises nothing and returns nothing to inspect, and the handler that is present is a working handler emitting real lines. The output is a correct log at the wrong level, which is far more convincing than no log at all.",
+      "discriminating_check": "Interrogate the configuration rather than the output: `python3 -c 'import logging; logging.warning(\"x\"); logging.basicConfig(level=logging.DEBUG); print(logging.root.handlers, logging.root.level, logging.getLogger().isEnabledFor(logging.INFO))'`. Observed on 3.12: handlers `[<StreamHandler <stderr> (NOTSET)>]`, level 30, isEnabledFor(INFO) False; with `force=True` the INFO record appears and isEnabledFor(INFO) is True.",
+      "cost_of_missing": "Missing lines are attributed to unreached code, and the debugging effort goes into the application instead of into the two lines of logging setup that declined to apply.",
+      "generalises_to": "Every initialiser that is idempotent by doing nothing: first-wins registries, singleton bootstrappers, setup functions that check for prior state and return quietly.",
+      "source": "https://docs.python.org/3/library/logging.html#logging.basicConfig",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-034",
+      "instrument": "log-output",
+      "title": "A malformed log call discards its own record and returns normally",
+      "title_short": "A bad log call discards its own record",
+      "class": "instrument-fails-silently",
+      "false_reading": "app.log holds the lines either side of a payment and no line for the payment itself. Conclusion drawn: that branch did not execute.",
+      "true_state": "The argument count did not match the format string. Interpolation happens inside the handler rather than at the call site, so the exception is raised during emit() and routed to Handler.handleError. The call returns normally, the program continues, the exit status is 0, and the record is gone. Where logging.raiseExceptions has been set to False — 'this is what is mostly wanted for a logging system' — nothing is written anywhere.",
+      "why_blind": "The line is missing for a reason internal to the logging subsystem, and the logging subsystem is the instrument being read. Its own failures are the one class of event it is built not to report through itself.",
+      "discriminating_check": "Look on the other stream, which is where the default handler puts its own failures: `python3 app.py 2>&1 >/dev/null | grep -c '^--- Logging error ---'` — non-zero when records were formatted and thrown away, zero when the branch genuinely did not run. Observed on 3.12: `log.info('charged %s for %s', 'user-1')` produced a TypeError traceback on stderr, exit status 0, and an app.log containing only the following line; with `logging.raiseExceptions = False` stderr was 0 bytes and the log was identical.",
+      "cost_of_missing": "The audit trail has a hole exactly where an operation is hardest to reconstruct, and the hole is read as evidence the operation did not happen.",
+      "mitigation": "Route stderr to the same destination as the log, so the logging subsystem's own failures land beside the records they replaced.",
+      "generalises_to": "Every subsystem asked to report on itself: monitoring agents that cannot alert on their own death, error trackers that drop malformed events, audit logs that fail open.",
+      "source": "https://docs.python.org/3/library/logging.html#logging.Handler.handleError",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-035",
+      "instrument": "log-output",
+      "title": "Combined stdout and stderr arrive in an order that never happened",
+      "title_short": "Buffering reorders stdout against stderr",
+      "class": "reordered-by-buffering",
+      "false_reading": "`prog > run.log 2>&1` yields three failure lines followed by three start lines. Conclusion drawn: the failures preceded the work, so something failed before the steps began.",
+      "true_state": "Standard output is fully buffered when it does not refer to an interactive device; standard error is not. Redirected to a file, stdout accumulates and is written in one block at exit while every stderr line goes straight through. The order in the merged file is an artefact of buffering policy, not a record of time.",
+      "why_blind": "A log is read as a sequence and a sequence is read as causality. The merged file records neither the originating stream nor the moment of emission, so the interleaving is the only ordering evidence available and it is precisely the part that was destroyed.",
+      "discriminating_check": "Re-run with stdout unbuffered and compare the two files. Observed on 3.12: a program alternating a stdout line and a stderr line three times produced all three stderr lines before all three stdout lines under `> combined.log 2>&1`, and strictly alternating lines under `PYTHONUNBUFFERED=1`. `stdbuf -oL` did not change it, because the interpreter manages its own buffers rather than libc's.",
+      "cost_of_missing": "A cause is assigned to the wrong step, and the fix is applied to whatever the reordering happened to place first.",
+      "mitigation": "Timestamp at the point of emission, so ordering does not depend on arrival, and keep the two streams separate when their relative order carries meaning.",
+      "generalises_to": "Any merge of independently buffered sources into one ordered view: multi-process logs, distributed traces without synchronised clocks, tail -f across several files.",
+      "source": "https://man7.org/linux/man-pages/man3/stdio.3.html",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-036",
+      "instrument": "process-list",
+      "title": "A terminated process keeps its entry in the table until the parent reaps it",
+      "title_short": "A zombie is listed but not running",
+      "class": "dead-but-listed",
+      "false_reading": "`pgrep worker` still returns a PID after the shutdown request. Conclusion drawn: the worker is refusing to exit and shutdown is hanging.",
+      "true_state": "The process has already exited. Its entry persists in state Z — what ps calls a 'defunct (\"zombie\") process, terminated but not reaped by its parent' — retaining only its exit status. It has no address space, executes nothing and cannot be killed; SIGKILL to a zombie does nothing. It disappears when the parent calls wait(), or when the parent itself exits and init reaps it.",
+      "why_blind": "The process list reports existence. A zombie exists as a table entry and matches by name exactly as a live process does; the state column is the only field that separates them, and name-based tools do not print it.",
+      "discriminating_check": "Read the state rather than the count: `ps -o pid,stat,comm -p PID` — Z is dead, S, R or D are alive. Observed here: a forked child whose parent never waits shows STAT Z and `[python3] <defunct>`, survives `kill -9` unchanged, is matched by `pgrep python3` and is not matched by `pgrep -f`, because /proc/PID/cmdline for a zombie is 0 bytes.",
+      "cost_of_missing": "A shutdown loop waits forever on a process that has already exited, or a supervisor counting instances by name refuses to start the replacement it should have started.",
+      "generalises_to": "Every registry where deregistration is a third party's responsibility: service discovery entries, connection pool slots, lock rows, task records whose owner died.",
+      "source": "https://man7.org/linux/man-pages/man1/ps.1.html",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-037",
+      "instrument": "process-list",
+      "title": "is-active reports active for a unit whose processes have all exited",
+      "title_short": "is-active covers units that have exited",
+      "class": "active-means-completed",
+      "false_reading": "`systemctl is-active provisioning` prints active. Conclusion drawn: the provisioning service is running.",
+      "true_state": "RemainAfterExit= 'specifies whether the service shall be considered active even when all its processes exited'. A Type=oneshot unit with RemainAfterExit=yes runs its command to completion and is then held active indefinitely with MainPID 0. Nothing is executing, and nothing will restart if the work it did is undone. Stock Ubuntu ships many such units — apparmor.service, cloud-config.service — all reading as 'active (exited)'.",
+      "why_blind": "is-active collapses ActiveState to a single word. That word covers both a running process and a finished one-shot, and the field that distinguishes them, SubState, is not part of the answer.",
+      "discriminating_check": "`systemctl show -p SubState -p MainPID --value NAME` — `running` with a non-zero PID, or `exited` with MainPID 0. Observed here: a unit created with `systemd-run --user --property=Type=oneshot --property=RemainAfterExit=yes /bin/true` reports is-active `active`, SubState `exited`, MainPID `0` once /bin/true has returned.",
+      "cost_of_missing": "A health check built on is-active passes for a service that finished minutes ago, and would keep passing if its binary were deleted afterwards. Restart= never fires either, because the unit is not running to fail.",
+      "generalises_to": "Every status vocabulary where one token spans 'in progress' and 'finished': job schedulers, CI stages, container states, queue workers reported as healthy.",
+      "source": "https://man7.org/linux/man-pages/man5/systemd.service.5.html",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-038",
+      "instrument": "process-list",
+      "title": "A running process keeps executing a binary that has been replaced on disk",
+      "title_short": "The running binary is not the one on disk",
+      "class": "code-in-memory-outlives-the-file",
+      "false_reading": "`ps -o args= -p PID` shows the daemon running from /usr/local/bin/app, and /usr/local/bin/app contains the new build. Conclusion drawn: the new build is running.",
+      "true_state": "Replacing an executable unlinks the old inode; a process that already mapped it holds a reference and goes on executing the previous image until it is restarted. ps prints the path recorded at exec time, which now names a different file. /proc/PID/exe still resolves, with the string '(deleted)' appended to the original pathname, and the mapped pages come from an inode with no directory entry left.",
+      "why_blind": "ps prints a string, not an identity. The argv and the executable path are untouched by the upgrade, so the row is byte-identical before and after it.",
+      "discriminating_check": "Compare inodes rather than paths: `stat -Lc %i /proc/PID/exe` against `stat -c %i /path/to/binary`. Observed here: identical (1908455) before the upgrade; after `rm` and a fresh copy the file on disk was inode 1908456 while the process still resolved to 1908455, `readlink /proc/PID/exe` ended in '(deleted)' and /proc/PID/maps held five deleted entries. The ps output was the same in both cases.",
+      "cost_of_missing": "A package upgrade or a deploy is verified against the file that was written while the old code keeps serving, until an unrelated restart changes the behaviour with no corresponding change to anything.",
+      "mitigation": "`lsof +L1`, or `ls -l /proc/*/exe 2>/dev/null | grep deleted`, names every process still on an old image; needrestart does this after apt on Debian and Ubuntu.",
+      "generalises_to": "Any consumer that resolves a resource once and holds it: loaded shared libraries, opened config files, cached DNS answers, imported modules.",
+      "source": "https://man7.org/linux/man-pages/man5/proc_pid_exe.5.html",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-039",
+      "instrument": "process-list",
+      "title": "The process bearing the service's name is a wrapper, and the worker is its child",
+      "title_short": "The named process is a wrapper, not the worker",
+      "class": "name-belongs-to-the-parent",
+      "false_reading": "ps shows one process named run-analytics; it is killed and it leaves the list. Conclusion drawn: the service is stopped.",
+      "true_state": "A shell wrapper ending in a plain command rather than `exec` forks a child and waits on it, so there are two processes: the wrapper carrying the recognisable name, and the worker carrying the interpreter's or binary's own name. Killing the wrapper leaves the worker running, reparented to PID 1, still holding its port, its lock and its open files.",
+      "why_blind": "The process list is flat and reports names. Nothing in it indicates that the row matching the search is the parent of the row doing the work, and after the kill the name is genuinely gone.",
+      "discriminating_check": "Verify the resource rather than the name: `ss -ltnp 'sport = :PORT'` after the stop — empty means stopped, a listener means the worker outlived the name. Observed here: killing `/bin/bash ./run-analytics` left its `sleep 120` child alive with PPID reassigned to 1; `pgrep -P PID` lists such children before the kill rather than after.",
+      "cost_of_missing": "A restart yields two live workers competing for the same resource, or a stop that reports success while the old worker keeps writing. Neither produces an error.",
+      "mitigation": "`exec` as the last line of a wrapper replaces the shell instead of forking, so the name and the worker are one process; systemd's default control-group-based KillMode stops the whole tree rather than the named process.",
+      "generalises_to": "Every process tree observed as a flat list: container entrypoints, npm and make targets, virtualenv shims, ssh command wrappers.",
+      "source": "https://www.gnu.org/software/bash/manual/bash.html#Bourne-Shell-Builtins",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-040",
+      "instrument": "process-list",
+      "title": "pgrep matches a fifteen-character truncation of the process name",
+      "title_short": "pgrep truncates the name to 15 characters",
+      "class": "silently-truncated-key",
+      "false_reading": "`pgrep analytics-ingest-worker` prints nothing and exits 1. Conclusion drawn: the process is not running, so it should be started.",
+      "true_state": "The kernel stores a process name of at most sixteen bytes including the terminator, so ps and pgrep see 'analytics-inges'. The manual states it plainly: 'the process name used for matching is limited to the 15 characters present in the output of /proc/pid/stat'. Any pattern longer than that matches nothing, whatever is running.",
+      "why_blind": "The tool returns a true statement about a name it truncated, and an exit status identical to the one for 'no such process'. Newer procps prints a warning, but on stderr — the stream discarded by exactly the scripts that make this mistake.",
+      "discriminating_check": "Match the command line instead: `pgrep -af analytics-ingest-worker`. Observed here with `./analytics-ingest-worker 60` running: `pgrep analytics-ingest-worker` printed nothing and exited 1, /proc/PID/comm contained 'analytics-inges', and both `pgrep -f analytics-ingest-worker` and `pgrep analytics-inges` found the process.",
+      "cost_of_missing": "A guard that starts the service when the check fails starts a second copy of something already running: two writers on one database, two schedulers on one queue, each verified as absent immediately beforehand.",
+      "generalises_to": "Every lookup key silently normalised before comparison: truncated identifiers, case-folded names, unicode-normalised paths, hostnames cut at a label boundary.",
+      "source": "https://man7.org/linux/man-pages/man1/pgrep.1.html",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-041",
+      "instrument": "process-list",
+      "title": "A process list taken in one namespace describes a different machine",
+      "title_short": "PIDs differ between namespaces",
+      "class": "wrong-namespace",
+      "false_reading": "`ps aux` inside the container lists the worker as PID 1 and little else. Conclusion drawn: this is what is running on the machine, and PID 1 is the thing to signal.",
+      "true_state": "A PID namespace isolates a set of process IDs: a process has a different PID in each namespace it belongs to, and processes outside the namespace are invisible from within it. The listing enumerates one view. The same worker holds another PID on the host, every host process competing for the same CPU and memory is absent, and a PID copied from one view and used in the other addresses an unrelated process, if it addresses anything.",
+      "why_blind": "PID numbers are namespace-relative and are printed as bare integers with nothing to record which namespace produced them. Two listings of 'the processes' are simply two different sets, each internally consistent.",
+      "discriminating_check": "Compare the observer's namespace with that of the process being acted on before trusting the number: `readlink /proc/self/ns/pid` against `readlink /proc/PID/ns/pid`. Identical inode strings mean the PIDs are comparable; different ones mean they are not. Observed on this host both returned `pid:[4026531836]` and `systemd-detect-virt --container` returned `none` — the case the check exists to establish rather than assume.",
+      "cost_of_missing": "Resource accounting done inside a container attributes to itself memory the host is losing elsewhere, and a kill or restart aimed at a PID from the other view lands on whatever holds that number there.",
+      "generalises_to": "Every identifier unique only within a scope the output does not name: container PIDs, per-tenant row ids, per-session handles, relative paths.",
+      "source": "https://man7.org/linux/man-pages/man7/pid_namespaces.7.html",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-042",
+      "instrument": "http-response",
+      "title": "A truncated response arrives with its 200 already delivered",
+      "title_short": "A 200 can precede a truncated body",
+      "class": "status-precedes-the-body",
+      "false_reading": "`curl -s -o data.json -w '%{http_code}' URL` prints 200 and data.json holds plausible content. Conclusion drawn: the document was retrieved.",
+      "true_state": "The status line is sent before the body. A connection that dies mid-body leaves a response RFC 9112 calls incomplete: 'a message body that uses the chunked transfer coding is incomplete if the zero-sized chunk that terminates the encoding has not been received', and a client that receives one 'MUST record the message as incomplete'. curl does record it, as exit code 18, but the status code stays 200 and the partial bytes stay on disk.",
+      "why_blind": "%{http_code} is a property of the header, which was true when it was sent. Nothing checks length, because chunked encoding exists precisely for bodies whose length is not known when the header is written.",
+      "discriminating_check": "Read curl's exit status, not only the code it reports: `curl -s -o data.json -w '%{http_code}\\n' URL; echo $?`. Observed against a local server that sends one chunk and closes the connection: `200` printed, exit status 18, and a 26-byte truncated prefix in data.json. `--fail` does not catch it, and `-s` suppresses the 'transfer closed with outstanding read data remaining' message that would otherwise appear.",
+      "cost_of_missing": "A truncated CSV, NDJSON or log export is syntactically valid and merely shorter, so it loads without complaint and the missing records are indistinguishable from records that never existed.",
+      "generalises_to": "Every protocol that commits to a status before the payload is complete, and every consumer that validates syntax instead of completeness.",
+      "source": "https://www.rfc-editor.org/rfc/rfc9112#section-8",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-043",
+      "instrument": "http-response",
+      "title": "curl -I asks a different question from the one users ask",
+      "title_short": "HEAD is not the request users make",
+      "class": "probe-takes-a-different-path",
+      "false_reading": "`curl -I https://site/report` returns 200 with a plausible Content-Length. Conclusion drawn: the page is up.",
+      "true_state": "-I sends HEAD. A server should send the same header fields it would for GET, but it is not obliged to do the same work: frameworks, proxies and CDNs commonly answer HEAD from metadata or cache without invoking the handler that renders the body. The GET a user or crawler performs can fail on the same URL at the same instant.",
+      "why_blind": "Status codes are per-method. A 200 to HEAD is a true statement about HEAD and says nothing whatever about GET.",
+      "discriminating_check": "Request the body and discard it: `curl -s -o /dev/null -w '%{http_code}\\n' URL`. Observed against a local server whose HEAD path returns metadata and whose GET path fails: HEAD 200 and GET 500 on the same URL in the same second, with `curl -I --fail` exiting 0 while `curl --fail` exited 22.",
+      "cost_of_missing": "Uptime monitors, link checkers and post-deploy smoke tests built on -I stay green throughout an outage every real request is experiencing.",
+      "generalises_to": "Every cheap probe standing in for the operation being assured: a TCP connect for a request, a ping for a service, a dry run for a run.",
+      "source": "https://www.rfc-editor.org/rfc/rfc9110#name-head",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-044",
+      "instrument": "http-response",
+      "title": "curl drops the Authorization header when a redirect crosses to another origin",
+      "title_short": "A cross-origin redirect drops credentials",
+      "class": "credential-silently-withheld",
+      "false_reading": "`curl -sL -u user:pass https://host/private` returns 200 with a body. Conclusion drawn: the credentials were accepted and the private resource is reachable.",
+      "true_state": "'Authorization:' and 'Cookie:' headers are explicitly not passed on in HTTP requests when following redirects to other origins, unless --location-trusted is used. The first hop redirected elsewhere, curl reissued the request without the credentials, and the 200 belongs to whatever that origin serves anonymously: a login page, a public shell, or an empty result set.",
+      "why_blind": "Every hop succeeded. The status code, the effective URL and the body are all consistent with an authenticated request, and the difference is a header removed by the client, which therefore appears in none of the server logs being consulted.",
+      "discriminating_check": "Ask the final host what it received, or compare the effective URL against the origin the credentials were issued for: `curl -sL -w '%{url_effective}\\n' ...`. Observed with two local servers, the second echoing the header it received: `curl -sL -u alice:secret http://127.0.0.1:8933/data` printed 'AUTH RECEIVED: None' with status 200, as did the same request carrying an explicit `-H 'Authorization: Bearer ...'`; `--location-trusted` printed the Basic credential. 127.0.0.1 and localhost count as different origins.",
+      "cost_of_missing": "An access-control change is signed off against a response that was never authenticated. The converse is worse: the same mechanism makes a broken authentication path look like a working one.",
+      "generalises_to": "Every hop that rewrites a request: proxies stripping headers, SDK retries losing context, message buses dropping attributes.",
+      "source": "https://curl.se/docs/manpage.html#--location-trusted",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-045",
+      "instrument": "http-response",
+      "title": "A GraphQL endpoint returns 200 for a response whose data never arrived",
+      "title_short": "GraphQL returns 200 with errors in the body",
+      "class": "errors-inside-a-successful-envelope",
+      "false_reading": "The POST returns HTTP 200 with a JSON body of the expected shape. Conclusion drawn: the query succeeded and the body holds the data.",
+      "true_state": "Where the operation is executed and no request error is raised, the server should respond with 200 — 'this is the case even if a GraphQL field error is raised' during execution. Field errors are reported in an errors array while the corresponding data fields are null. Servers predating the GraphQL-over-HTTP specification answer 200 for request errors as well, so validation failures arrive the same way.",
+      "why_blind": "The status code describes the transport; the outcome of the operation lives in the payload. A body carrying only errors is a well-formed 200 with the correct content type.",
+      "discriminating_check": "Assert on the payload: `jq -e 'has(\"errors\") | not' resp.json`, and treat null leaves as failures rather than as absent data. Observed against the public countries.trevorblades.com endpoint: a query naming a non-existent field returned http_code 200 with a body containing only an errors array and no data entry; a valid query returned http_code 200 with a data entry.",
+      "cost_of_missing": "A pipeline stores the null as a real value. The failure surfaces later as missing data, far from the query, with a 200 in the access log at the point where it actually went wrong.",
+      "generalises_to": "Every API carrying per-operation outcome in the body: JSON-RPC, batch endpoints, SOAP faults, webhook receivers that acknowledge before processing.",
+      "source": "https://graphql.github.io/graphql-over-http/draft/",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-046",
+      "instrument": "file-on-disk",
+      "title": "An unquoted YAML scalar becomes a boolean before anything reads it",
+      "title_short": "Unquoted YAML scalars change type on load",
+      "class": "implicit-type-coercion",
+      "false_reading": "config.yml reads `country: NO` and `version: 1.10`, and it is the file the service loads. Conclusion drawn: those are the values the service has.",
+      "true_state": "The YAML 1.1 boolean resolver matches y, yes, n, no, true, false, on and off in any capitalisation, and the loaders in widest use implement it. `NO` loads as False, `off` as False, `on` as True. Numeric resolution is equally implicit: `1.10` becomes the float 1.1 and `0xdeadbeef` becomes 3735928559.",
+      "why_blind": "Reading the file confirms the characters, and the characters are right. The conversion happens inside the loader, and the loaded value is never displayed beside the text it came from.",
+      "discriminating_check": "Load it and print the types instead of reading it: `python3 -c \"import yaml,sys;[print(repr(k),repr(v),type(v).__name__) for k,v in yaml.safe_load(open(sys.argv[1])).items()]\" config.yml`. Observed on PyYAML 6.0.1: `NO` -> False, `off` -> False, `on` -> True, `1.10` -> 1.1 (float), `0xdeadbeef` -> 3735928559 (int), while `08` stayed the string '08' because it is not a valid octal literal — so neighbouring keys in one file resolve inconsistently.",
+      "cost_of_missing": "A country code becomes a boolean and a version becomes a different version. Both are valid values of the wrong type, and both survive any review conducted by reading the file.",
+      "mitigation": "Quote every scalar whose type matters. Loaders following the YAML 1.2 core schema resolve fewer of these, which changes the set of surprises rather than removing it.",
+      "generalises_to": "Every format that infers type from spelling: spreadsheet imports turning identifiers into dates, shell word-splitting, environment variables parsed as numbers.",
+      "source": "https://yaml.org/type/bool.html",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-047",
+      "instrument": "file-on-disk",
+      "title": "A directory containing a .git is committed as a pointer rather than as files",
+      "title_short": "A nested repo is committed as a pointer",
+      "class": "recorded-as-a-reference",
+      "false_reading": "The files are in the working tree, `git add -A` and `git commit` both succeeded, and `git status` reports a clean tree. Conclusion drawn: the files are in the repository.",
+      "true_state": "A directory with its own .git is recorded as a gitlink — one index entry of mode 160000 holding a commit id — not as the files beneath it. The commit id names an object in a repository nobody else can reach, and no .gitmodules entry is created. A clone contains the path as an empty directory.",
+      "why_blind": "git status compares the working tree with the index, and the index is satisfied: the gitlink matches the nested repository's HEAD. Everything tracked is up to date, and the untracked files sit behind a boundary status does not cross. The warning appears once, at add time, on stderr, and does not affect the exit status.",
+      "discriminating_check": "Ask whether the specific file is tracked: `git ls-files --error-unmatch vendor/widget/index.js` — prints the path and exits 0 when it is, prints \"did not match any file(s) known to git\" and exits 1 when it is not. Observed here: `git ls-tree HEAD vendor/` returned `160000 commit bdf3631e...\tvendor/widget`, and a fresh clone of the repository contained README.md and nothing else.",
+      "cost_of_missing": "The backup, the mirror or the deploy artefact is missing a subtree that every local check confirms is present. It is discovered on a clean clone, usually on another machine, usually once the original is gone.",
+      "generalises_to": "Every container that stores a reference where the reader assumes contents: symlinks inside archives, submodule pointers, lockfiles naming versions that no longer resolve.",
+      "source": "https://git-scm.com/docs/gitsubmodules",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-048",
+      "instrument": "file-on-disk",
+      "title": "The module that imports is the first file on the path with that name",
+      "title_short": "The first matching name on sys.path wins",
+      "class": "same-name-different-file",
+      "false_reading": "config.py was edited, saved, and re-read to confirm the new value; the program still uses the old one. Conclusion drawn: a caching problem, or the process was not restarted.",
+      "true_state": "The interpreter searches sys.path in order, with the directory containing the input script placed at the front. Any file of that name in the script's directory, in the working directory, or earlier in the path is imported instead. The edited file is never read, and nothing is raised because the module that was found is a perfectly valid module.",
+      "why_blind": "The file being read and the file being imported have the same name and a similar shape, and the import statement names neither directory. Nothing in the source distinguishes them.",
+      "discriminating_check": "Ask the imported module where it came from, invoked exactly as the program is invoked: `python3 -c 'import config; print(config.__file__)'`. Observed here with two config.py files present: a script in sub/ loaded sub/config.py and reported that path, while the copy that had been edited sat one directory up, untouched.",
+      "cost_of_missing": "Edits accumulate in a file the program has never loaded, and the conclusion drawn concerns caching or process lifetime rather than identity, sending the work into restarts and clearing __pycache__.",
+      "generalises_to": "Every ordered resolution path where names are not unique: PATH, LD_LIBRARY_PATH, node_modules resolution, classpath, include directories.",
+      "source": "https://docs.python.org/3/tutorial/modules.html#the-module-search-path",
+      "provenance": "documented"
     }
   ],
   "principles": [
@@ -587,7 +864,8 @@
         "NS-005",
         "NS-007",
         "NS-008",
-        "NS-026"
+        "NS-026",
+        "NS-038"
       ]
     },
     {
@@ -606,7 +884,9 @@
       "entries": [
         "NS-026",
         "NS-027",
-        "NS-005"
+        "NS-005",
+        "NS-037",
+        "NS-038"
       ]
     },
     {
@@ -632,7 +912,9 @@
         "NS-020",
         "NS-021",
         "NS-019",
-        "NS-025"
+        "NS-025",
+        "NS-042",
+        "NS-045"
       ]
     },
     {
@@ -641,7 +923,8 @@
       "entries": [
         "NS-003",
         "NS-023",
-        "NS-008"
+        "NS-008",
+        "NS-046"
       ]
     },
     {
@@ -650,7 +933,11 @@
       "entries": [
         "NS-029",
         "NS-028",
-        "NS-011"
+        "NS-011",
+        "NS-031",
+        "NS-032",
+        "NS-033",
+        "NS-034"
       ]
     },
     {
@@ -659,7 +946,8 @@
       "entries": [
         "NS-011",
         "NS-013",
-        "NS-014"
+        "NS-014",
+        "NS-031"
       ]
     },
     {
@@ -667,7 +955,8 @@
       "note": "A catch-all answered on the origin's behalf.",
       "entries": [
         "NS-022",
-        "NS-007"
+        "NS-007",
+        "NS-043"
       ]
     },
     {
@@ -682,7 +971,8 @@
       "note": "A plausible artifact of the right type is not evidence it is the right one.",
       "entries": [
         "NS-006",
-        "NS-004"
+        "NS-004",
+        "NS-048"
       ]
     },
     {
@@ -705,7 +995,8 @@
       "note": "Silent coercion produces a valid value that is not your value.",
       "entries": [
         "NS-025",
-        "NS-019"
+        "NS-019",
+        "NS-046"
       ]
     },
     {
@@ -713,7 +1004,11 @@
       "note": "The instrument is a process, and it is inside its own sample.",
       "entries": [
         "NS-012",
-        "NS-027"
+        "NS-027",
+        "NS-036",
+        "NS-039",
+        "NS-040",
+        "NS-041"
       ]
     },
     {
@@ -722,6 +1017,27 @@
       "entries": [
         "NS-014",
         "NS-013"
+      ]
+    },
+    {
+      "symptom": "Log lines are in an impossible order",
+      "note": "Two streams with different buffering do not interleave the way they were written.",
+      "entries": [
+        "NS-035"
+      ]
+    },
+    {
+      "symptom": "Credentials are ignored but the request still succeeds",
+      "note": "Something in the chain dropped the header and the endpoint answered anyway.",
+      "entries": [
+        "NS-044"
+      ]
+    },
+    {
+      "symptom": "A fresh clone is missing files that are present locally",
+      "note": "Committed is not the same as tracked.",
+      "entries": [
+        "NS-047"
       ]
     }
   ]

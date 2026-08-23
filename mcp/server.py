@@ -23,7 +23,7 @@ import traceback
 from typing import Any
 
 SERVER_NAME = "verifyfirst"
-SERVER_VERSION = "1.1.0"
+SERVER_VERSION = "1.2.2"
 
 # Protocol versions this server knows how to speak. If the client asks for one
 # of these we echo it back; otherwise we answer with our preferred version and
@@ -221,7 +221,7 @@ class Registry:
         points at — the false readings are phrased the way someone describes a
         problem, which makes them the most useful part of the haystack.
         """
-        want = {w for w in re.findall(r"[a-z0-9]+", text.lower()) if w not in STOPWORDS}
+        want = tokens(text)
         if not want:
             return []
         scored: list[tuple[float, dict[str, Any]]] = []
@@ -230,17 +230,25 @@ class Registry:
             for eid in sy.get("entries", []):
                 e = self.entry(eid)
                 if e:
-                    hay += " " + e.get("false_reading", "") + " " + e.get("title", "")
-            have = {w for w in re.findall(r"[a-z0-9]+", hay.lower()) if w not in STOPWORDS}
+                    hay += " ".join((
+                        " ", e.get("false_reading", ""), e.get("title", ""),
+                        e.get("discriminating_check", ""), e.get("class", "")))
+            have = tokens(hay)
             if not have:
                 continue
             hits = want & have
             if not hits:
                 continue
+            title_words = tokens(sy.get("symptom", ""))
+            # One incidental word is not a match: "zzzqqq unrelated gibberish"
+            # collides with the class name "unrelated-precondition" and would
+            # otherwise return the deploy symptom with a straight face. But a
+            # single hit on the symptom's OWN wording is a real match — "blank"
+            # against "the page renders blank" needs no corroboration.
+            if len(hits) < 2 and len(want) > 1 and not (want & title_words):
+                continue
             # Favour covering the caller's words over merely being a long entry.
             score = len(hits) / len(want)
-            title_words = {w for w in re.findall(r"[a-z0-9]+", sy.get("symptom", "").lower())
-                           if w not in STOPWORDS}
             score += 1.2 * len(want & title_words) / max(1, len(title_words))
             scored.append((score, sy))
         scored.sort(key=lambda t: -t[0])
@@ -258,6 +266,24 @@ class Registry:
 
     def entry_ids(self) -> list[str]:
         return [e.get("id", "") for e in self.entries]
+
+
+def stem(word: str) -> str:
+    """Crude suffix stripping, deliberately not a real stemmer.
+
+    Without it "find" and "finds" are different tokens, and a query like
+    "pgrep cannot find my daemon" misses the symptom literally named "a search
+    for a process finds something unexpected". Over-stemming would collapse
+    distinct words, so this only touches the endings that actually cost matches.
+    """
+    for suffix in ("ing", "ed", "es", "s"):
+        if len(word) > len(suffix) + 2 and word.endswith(suffix):
+            return word[: -len(suffix)]
+    return word
+
+
+def tokens(text: str) -> set[str]:
+    return {stem(w) for w in re.findall(r"[a-z0-9]+", text.lower()) if w not in STOPWORDS}
 
 
 STOPWORDS = {
