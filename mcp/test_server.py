@@ -27,6 +27,7 @@ EXPECTED_TOOLS = {
     "blind_spots",
     "search",
     "get_entry",
+    "from_symptom",
     "get_protocol",
 }
 
@@ -151,11 +152,11 @@ class TestHandshake(MCPTestCase):
 
 
 class TestToolsList(MCPTestCase):
-    def test_lists_exactly_the_six_tools(self) -> None:
+    def test_lists_exactly_the_expected_tools(self) -> None:
         self.handshake()
         resp = self.client.request("tools/list")
         tools = resp["result"]["tools"]
-        self.assertEqual(len(tools), 6)
+        self.assertEqual(len(tools), len(EXPECTED_TOOLS))
         self.assertEqual({t["name"] for t in tools}, EXPECTED_TOOLS)
 
     def test_every_tool_has_a_substantive_description_and_schema(self) -> None:
@@ -345,7 +346,7 @@ class TestGetEntry(MCPTestCase):
 
     def test_every_entry_id_is_retrievable(self) -> None:
         self.handshake()
-        self.assertEqual(len(self.registry["entries"]), 14)
+        self.assertGreaterEqual(len(self.registry["entries"]), 14)
         for e in self.registry["entries"]:
             with self.subTest(entry=e["id"]):
                 text = self.client.call_text("get_entry", {"id": e["id"]})
@@ -415,7 +416,7 @@ class TestProtocolErrors(MCPTestCase):
         self.assertEqual(resp["error"]["code"], -32700)
         self.assertIsNone(resp["id"])
         follow_up = self.client.request("tools/list")
-        self.assertEqual(len(follow_up["result"]["tools"]), 6)
+        self.assertEqual(len(follow_up["result"]["tools"]), len(EXPECTED_TOOLS))
 
     def test_tools_call_without_name_is_invalid_params(self) -> None:
         self.handshake()
@@ -466,7 +467,73 @@ class TestOfflineByDefault(unittest.TestCase):
                     stream.close()
         self.assertIn("bundled registry", stderr)
         self.assertNotIn("remote fetch", stderr)
-        self.assertIn("6 instruments, 14 entries, 6 tools", stderr)
+        with open(REGISTRY, "r", encoding="utf-8") as fh:
+            reg = json.load(fh)
+        self.assertIn(
+            f'{len(reg["instruments"])} instruments, '
+            f'{len(reg["entries"])} entries, {len(EXPECTED_TOOLS)} tools',
+            stderr,
+        )
+
+
+class TestFromSymptom(MCPTestCase):
+    """The symptom-first entry point. Callers describe what they see in their
+    own words, so these assert on real phrasings rather than on the exact
+    strings in the registry."""
+
+    def test_plain_descriptions_reach_the_right_symptom(self) -> None:
+        self.handshake()
+        cases = [
+            ("I deployed but the site still shows the old version",
+             "The deploy ran but nothing changed"),
+            ("systemctl says active but requests fail",
+             "The service says active but is not working"),
+            ("my curl returns 200 but the json is wrong",
+             "The API returned 200 but the data is wrong"),
+            ("the script just hangs forever with no output",
+             "A command hangs and never returns"),
+            ("tests are green but the feature does not work",
+             "The tests pass but the feature is broken"),
+            ("clicking the button does nothing", "Clicks land on nothing"),
+        ]
+        for description, expected in cases:
+            with self.subTest(description=description):
+                text = self.client.call_text("from_symptom", {"description": description})
+                first = next(l[2:] for l in text.split("\n") if l.startswith("* "))
+                self.assertEqual(first, expected)
+
+    def test_result_carries_a_runnable_check(self) -> None:
+        self.handshake()
+        text = self.client.call_text("from_symptom", {"description": "the page is blank"})
+        self.assertIn("CHECK:", text)
+        self.assertIn("NS-", text)
+
+    def test_no_match_lists_the_available_symptoms(self) -> None:
+        self.handshake()
+        text = self.client.call_text(
+            "from_symptom", {"description": "zzzqqq unrelated gibberish"})
+        self.assertIn("Nothing matched", text)
+        for sy in self.registry["symptoms"]:
+            self.assertIn(sy["symptom"], text)
+
+    def test_empty_description_is_a_tool_error(self) -> None:
+        self.handshake()
+        result = self.client.call_tool("from_symptom", {"description": "   "})["result"]
+        self.assertTrue(result.get("isError"))
+
+    def test_missing_argument_is_a_tool_error(self) -> None:
+        self.handshake()
+        result = self.client.call_tool("from_symptom", {})["result"]
+        self.assertTrue(result.get("isError"))
+
+    def test_every_symptom_points_at_real_entries(self) -> None:
+        self.handshake()
+        ids = {e["id"] for e in self.registry["entries"]}
+        for sy in self.registry["symptoms"]:
+            with self.subTest(symptom=sy["symptom"]):
+                self.assertTrue(sy["entries"])
+                for eid in sy["entries"]:
+                    self.assertIn(eid, ids)
 
 
 if __name__ == "__main__":

@@ -99,7 +99,8 @@
       "discriminating_check": "let n=0; requestAnimationFrame(()=>n++); setTimeout(()=>console.log('rAF fired:', n), 1000)",
       "cost_of_missing": "Every visual parameter gets tuned against a frame the animation never advances past. The tuning is not merely useless, it is fitted to an artifact.",
       "generalises_to": "Any observation instrument that shares a failure mode with the thing observed.",
-      "provenance": "observed"
+      "provenance": "observed",
+      "title_short": "requestAnimationFrame never fires in headless browsers"
     },
     {
       "id": "NS-002",
@@ -112,7 +113,8 @@
       "discriminating_check": "Read the element's backing store, not its appearance: canvas.width/height still at the 300x150 default means resize() never ran.",
       "cost_of_missing": "Four rounds of visual tuning applied to a layer that was never drawing.",
       "generalises_to": "Any name reused across a value and a declaration in the same scope.",
-      "provenance": "observed"
+      "provenance": "observed",
+      "title_short": "A var assignment overwrites a function of the same name"
     },
     {
       "id": "NS-003",
@@ -138,7 +140,8 @@
       "discriminating_check": "document.fonts.check('1em \"Family Name\"') or a 404 on the font path in the network log.",
       "cost_of_missing": "Design review proceeds against the wrong typeface. Every judgement about weight, rhythm and scale is made on a substitute.",
       "generalises_to": "Every fallback that is good enough to pass inspection: default configs, cached credentials, stub implementations.",
-      "provenance": "observed"
+      "provenance": "observed",
+      "title_short": "A font 404s and falls back to a plausible substitute"
     },
     {
       "id": "NS-005",
@@ -164,7 +167,8 @@
       "discriminating_check": "Prefer the canonical marker the page declares about itself (og:image, canonical link, structured data) over any heuristic ranking of candidates.",
       "cost_of_missing": "Silent substitution. Detected only when two different inputs return the same output.",
       "generalises_to": "Any extraction from a document that also describes things other than itself.",
-      "provenance": "observed"
+      "provenance": "observed",
+      "title_short": "Scraping the largest image returns a recommendation"
     },
     {
       "id": "NS-007",
@@ -177,7 +181,8 @@
       "discriminating_check": "Hash the served bytes from a client that has never requested it: curl -s URL | md5sum, compared to the file on disk.",
       "cost_of_missing": "The deploy is repeated, rolled back, or rebuilt to fix a problem that exists only in one cache.",
       "generalises_to": "Any layer that answers on the origin's behalf: CDN, proxy, DNS resolver, memoised client.",
-      "provenance": "observed"
+      "provenance": "observed",
+      "title_short": "Heuristic caching hides a deploy from its own author"
     },
     {
       "id": "NS-008",
@@ -190,7 +195,8 @@
       "discriminating_check": "Ask the running service what it loaded, not the filesystem what it holds. For Caddy: the admin API's live config.",
       "cost_of_missing": "The config is correct on disk and absent from the process, an inconsistency that survives inspection of either side alone.",
       "generalises_to": "Any pipeline where a global check gates a local change.",
-      "provenance": "observed"
+      "provenance": "observed",
+      "title_short": "set -e aborts on an unrelated validation step"
     },
     {
       "id": "NS-009",
@@ -217,7 +223,8 @@
       "cost_of_missing": "A working page is diagnosed as broken. Worse, the reverse: a genuinely blank page is dismissed as this.",
       "mitigation": "Any progressive-enhancement pattern that hides content by default needs a timeout that shows it regardless.",
       "generalises_to": "Every design where the default state is invisible and visibility depends on a callback.",
-      "provenance": "observed"
+      "provenance": "observed",
+      "title_short": "Reveal-on-scroll is blank when the observer never fires"
     },
     {
       "id": "NS-011",
@@ -231,7 +238,8 @@
       "cost_of_missing": "The innocent session is blamed and 'fixed'. The leak keeps running and takes another process later.",
       "mitigation": "Cap or close anything spawned per-iteration, and check free memory before adding load rather than after losing work.",
       "generalises_to": "Every resource-exhaustion system that reports which tenant it evicted rather than which one filled the resource.",
-      "provenance": "observed"
+      "provenance": "observed",
+      "title_short": "The OOM killer names the victim, not the leak"
     },
     {
       "id": "NS-012",
@@ -257,7 +265,8 @@
       "discriminating_check": "Before any teardown, compare the target against the environment you occupy: for tmux, test whether $TMUX is set and whether its session name equals the target. Refuse if they match.",
       "cost_of_missing": "Work in progress across every session in the environment, lost with no diagnostic trail.",
       "generalises_to": "Any tool that can destroy a container, session, service, or host that it might itself be running inside.",
-      "provenance": "observed"
+      "provenance": "observed",
+      "title_short": "A teardown script destroys its own environment"
     },
     {
       "id": "NS-014",
@@ -271,7 +280,8 @@
       "cost_of_missing": "An agent waits on a command that will never return, and a task that needed a human is reported as in progress.",
       "mitigation": "Wrap anything that might prompt in a timeout, so a hang converts into a failure you can observe.",
       "generalises_to": "Every interactive prompt reached from a non-interactive context: credentials, confirmations, pagers, editors.",
-      "provenance": "observed"
+      "provenance": "observed",
+      "title_short": "A privilege prompt with no terminal hangs forever"
     },
     {
       "id": "NS-015",
@@ -286,7 +296,8 @@
       "mitigation": "`set -euo pipefail` at the top of any script whose exit status will be believed by something else.",
       "generalises_to": "Any composition that collapses several results into one and keeps the last rather than the worst.",
       "source": "https://www.gnu.org/software/bash/manual/bash.html#Pipelines",
-      "provenance": "documented"
+      "provenance": "documented",
+      "title_short": "A pipeline returns the last command's exit status"
     },
     {
       "id": "NS-016",
@@ -314,7 +325,8 @@
       "cost_of_missing": "The behaviour the test was written to protect is unprotected, and the suite's green status is subsequently cited as evidence that it is protected.",
       "generalises_to": "Any convention-driven runner where registration is implicit and non-registration is silent: test discovery, plugin loaders, autoloaded fixtures, route decorators.",
       "source": "https://docs.pytest.org/en/stable/explanation/goodpractices.html#conventions-for-python-test-discovery",
-      "provenance": "documented"
+      "provenance": "documented",
+      "title_short": "A misnamed test is neither run nor reported"
     },
     {
       "id": "NS-018",
@@ -328,7 +340,8 @@
       "cost_of_missing": "A rename is shipped with a fully green suite whose coverage of the renamed path is zero. The regression appears in production, in code the tests appeared to cover.",
       "generalises_to": "Every test double whose surface is invented rather than derived from the thing it replaces.",
       "source": "https://docs.python.org/3/library/unittest.mock.html#autospeccing",
-      "provenance": "documented"
+      "provenance": "documented",
+      "title_short": "A bare mock answers to methods that no longer exist"
     },
     {
       "id": "NS-019",
@@ -343,7 +356,8 @@
       "mitigation": "Assert the mode rather than assume it: `SELECT @@SESSION.sql_mode` should contain STRICT_TRANS_TABLES before any load is trusted.",
       "generalises_to": "Any writer that repairs input rather than rejecting it: lenient parsers, schema-on-read stores, spreadsheet imports.",
       "source": "https://dev.mysql.com/doc/refman/8.4/en/sql-mode.html#sql-mode-strict",
-      "provenance": "documented"
+      "provenance": "documented",
+      "title_short": "MySQL outside strict mode silently adjusts your value"
     },
     {
       "id": "NS-020",
@@ -371,7 +385,8 @@
       "cost_of_missing": "Rows go missing from a bulk load in proportion to how throttled the table was, with no error recorded anywhere, and the load is reported complete.",
       "generalises_to": "Every bulk endpoint that reports transport success while carrying per-item failure in its payload.",
       "source": "https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_BatchWriteItem.html",
-      "provenance": "documented"
+      "provenance": "documented",
+      "title_short": "A batch write returns 200 with unprocessed items"
     },
     {
       "id": "NS-022",
@@ -385,7 +400,8 @@
       "cost_of_missing": "Link checks, sitemap validation and 'the page is live' claims all pass against URLs with nothing behind them.",
       "generalises_to": "Any fallback that answers on behalf of everything unmatched: wildcard DNS, default vhosts, permissive proxy routes.",
       "source": "https://developers.google.com/search/docs/crawling-indexing/javascript/fix-search-javascript",
-      "provenance": "documented"
+      "provenance": "documented",
+      "title_short": "An SPA catch-all returns 200 for URLs that do not exist"
     },
     {
       "id": "NS-023",
@@ -399,7 +415,8 @@
       "cost_of_missing": "A hardening change is recorded as applied while the setting it was meant to change is untouched, and the evidence for the claim is the file that lost.",
       "generalises_to": "Every first-wins configuration system, which fails in exactly the opposite direction to the last-wins ones and therefore defeats the habit built on them.",
       "source": "https://man.openbsd.org/sshd_config.5",
-      "provenance": "documented"
+      "provenance": "documented",
+      "title_short": "sshd takes the first value for a keyword, not the last"
     },
     {
       "id": "NS-024",
@@ -414,7 +431,8 @@
       "mitigation": "Compilers now detect this where asked: rustc's text_direction_codepoint_in_literal lint and gcc's -Wbidi-chars. Enable them rather than relying on reading.",
       "generalises_to": "Any check performed on a rendering of an artifact rather than on its bytes.",
       "source": "https://trojansource.codes/",
-      "provenance": "documented"
+      "provenance": "documented",
+      "title_short": "Bidi characters make source read unlike it compiles"
     },
     {
       "id": "NS-025",
@@ -429,7 +447,8 @@
       "mitigation": "Carry large identifiers as strings across the boundary; APIs that learned this the hard way ship both forms, id and id_str.",
       "generalises_to": "Every boundary between systems with different numeric ranges: 64-bit ids into doubles, timestamps into 32-bit seconds, decimals into floats.",
       "source": "https://www.rfc-editor.org/rfc/rfc8259#section-6",
-      "provenance": "documented"
+      "provenance": "documented",
+      "title_short": "A JSON integer above 2^53 is silently rounded"
     },
     {
       "id": "NS-026",
@@ -444,7 +463,8 @@
       "mitigation": "Type=notify with sd_notify(READY=1) makes activeness mean readiness; Type=exec at least waits for execve() to succeed.",
       "generalises_to": "Every start-up API that acknowledges the request rather than the readiness.",
       "source": "https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html#Type=",
-      "provenance": "documented"
+      "provenance": "documented",
+      "title_short": "systemd reports active before the binary has executed"
     },
     {
       "id": "NS-027",
@@ -458,7 +478,8 @@
       "cost_of_missing": "A deploy is signed off on a service that drops every request arriving inside its restart window, until the start rate limit is reached and it stays down for good.",
       "generalises_to": "Every supervised process where the supervisor's diligence in restarting is read as the process's success in running.",
       "source": "https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html#Restart=",
-      "provenance": "documented"
+      "provenance": "documented",
+      "title_short": "A crash-looping service reads as active between crashes"
     },
     {
       "id": "NS-028",
@@ -473,7 +494,8 @@
       "mitigation": "copytruncate, or a postrotate hook that signals the daemon to reopen its log.",
       "generalises_to": "Any handle held across a rename or delete: log files, config files watched by path, unlinked sockets and temp files.",
       "source": "https://man7.org/linux/man-pages/man8/logrotate.8.html",
-      "provenance": "documented"
+      "provenance": "documented",
+      "title_short": "A rotated log leaves the daemon writing to no name"
     },
     {
       "id": "NS-029",
@@ -487,7 +509,8 @@
       "cost_of_missing": "Debugging proceeds from the false premise that the instrumented branch was not reached, and the real fault is hunted upstream of where it lives.",
       "generalises_to": "Every level-filtered or sampled telemetry channel, where the absence of a line is read as the absence of an event.",
       "source": "https://docs.python.org/3/howto/logging.html#what-happens-if-no-configuration-is-provided",
-      "provenance": "documented"
+      "provenance": "documented",
+      "title_short": "Python drops records below WARNING by default"
     },
     {
       "id": "NS-030",
@@ -501,7 +524,8 @@
       "cost_of_missing": "An automated flow reports submitting forms it never submitted. A synthetic `el.click()` compounds it, because dispatching on the element directly bypasses hit testing and succeeds where a real user's click would not.",
       "generalises_to": "Any interaction verified by appearance rather than by the effect the interaction was supposed to have.",
       "source": "https://www.w3.org/TR/webdriver2/#errors",
-      "provenance": "documented"
+      "provenance": "documented",
+      "title_short": "A transparent overlay takes the click you can see land"
     }
   ],
   "principles": [
@@ -544,6 +568,161 @@
       "id": "P-8",
       "statement": "Check whether you are inside what you are measuring.",
       "note": "Searches that match themselves and teardowns that destroy their own host are the same error: the observer was part of the sample."
+    }
+  ],
+  "symptoms": [
+    {
+      "symptom": "The page renders blank",
+      "note": "Nothing visible, but the DOM may be complete and merely invisible.",
+      "entries": [
+        "NS-010",
+        "NS-002",
+        "NS-004"
+      ]
+    },
+    {
+      "symptom": "The deploy ran but nothing changed",
+      "note": "The new code is on disk. Something between disk and user is still serving the old one.",
+      "entries": [
+        "NS-005",
+        "NS-007",
+        "NS-008",
+        "NS-026"
+      ]
+    },
+    {
+      "symptom": "The command succeeded but had no effect",
+      "note": "Exit zero describes the process, not the outcome you wanted.",
+      "entries": [
+        "NS-005",
+        "NS-015",
+        "NS-016",
+        "NS-014"
+      ]
+    },
+    {
+      "symptom": "The service says active but is not working",
+      "note": "Active is a statement about a process existing, not about it serving.",
+      "entries": [
+        "NS-026",
+        "NS-027",
+        "NS-005"
+      ]
+    },
+    {
+      "symptom": "An animation or counter never moves",
+      "note": "Frozen at frame zero is indistinguishable from correctly static.",
+      "entries": [
+        "NS-001",
+        "NS-002"
+      ]
+    },
+    {
+      "symptom": "The tests pass but the feature is broken",
+      "note": "A test that never ran, and a test that asserts nothing, both report green.",
+      "entries": [
+        "NS-017",
+        "NS-018"
+      ]
+    },
+    {
+      "symptom": "The API returned 200 but the data is wrong",
+      "note": "The status describes the transaction, not the payload.",
+      "entries": [
+        "NS-020",
+        "NS-021",
+        "NS-019",
+        "NS-025"
+      ]
+    },
+    {
+      "symptom": "My config change is being ignored",
+      "note": "The file records intent. Something later, or something else, decided the outcome.",
+      "entries": [
+        "NS-003",
+        "NS-023",
+        "NS-008"
+      ]
+    },
+    {
+      "symptom": "The logs show nothing useful",
+      "note": "Silence is produced by a filter, a rotation and a crash alike.",
+      "entries": [
+        "NS-029",
+        "NS-028",
+        "NS-011"
+      ]
+    },
+    {
+      "symptom": "A process died and I cannot tell why",
+      "note": "The thing that was killed is often not the thing that caused it.",
+      "entries": [
+        "NS-011",
+        "NS-013",
+        "NS-014"
+      ]
+    },
+    {
+      "symptom": "A URL returns 200 for something that does not exist",
+      "note": "A catch-all answered on the origin's behalf.",
+      "entries": [
+        "NS-022",
+        "NS-007"
+      ]
+    },
+    {
+      "symptom": "Clicks land on nothing",
+      "note": "The element you can see is not the element receiving the event.",
+      "entries": [
+        "NS-030"
+      ]
+    },
+    {
+      "symptom": "The wrong file or image was used",
+      "note": "A plausible artifact of the right type is not evidence it is the right one.",
+      "entries": [
+        "NS-006",
+        "NS-004"
+      ]
+    },
+    {
+      "symptom": "Text renders, but it looks wrong",
+      "note": "A substitution that still renders is invisible without a comparison.",
+      "entries": [
+        "NS-004",
+        "NS-024"
+      ]
+    },
+    {
+      "symptom": "Assets take seconds to appear",
+      "note": "Late departure and slow transfer feel identical from the viewport.",
+      "entries": [
+        "NS-009"
+      ]
+    },
+    {
+      "symptom": "Numbers come back subtly altered",
+      "note": "Silent coercion produces a valid value that is not your value.",
+      "entries": [
+        "NS-025",
+        "NS-019"
+      ]
+    },
+    {
+      "symptom": "A search for a process finds something unexpected",
+      "note": "The instrument is a process, and it is inside its own sample.",
+      "entries": [
+        "NS-012",
+        "NS-027"
+      ]
+    },
+    {
+      "symptom": "A command hangs and never returns",
+      "note": "There is no exit code to read, and silence resembles progress.",
+      "entries": [
+        "NS-014",
+        "NS-013"
+      ]
     }
   ]
 }

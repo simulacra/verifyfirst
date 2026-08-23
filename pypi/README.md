@@ -40,6 +40,7 @@ Or any MCP client:
 
 | Tool | What it does |
 |---|---|
+| `from_symptom(description)` | Start here when something is wrong but you do not know why. Describe what you see — "deploy ran but nothing changed", "200 but the data is wrong" — and get the failures that produce that appearance, each with its check. |
 | `blind_spots(instrument)` | The one to reach for mid-task. What an instrument cannot see, terse. Takes loose names — `curl`, `200`, `pgrep`, `systemctl`, `stdout`, `playwright` all resolve. |
 | `list_instruments()` | All six instruments. |
 | `get_instrument(id)` | Full detail plus every recorded failure it missed, each with its check. |

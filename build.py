@@ -548,6 +548,11 @@ conclusion. Prefer resolved values over authored ones.</pre>
 
     # --- mcp -----------------------------------------------------------------
     tools = [
+        ("from_symptom(description)", "Start here when something is wrong but you do not yet "
+         "know why. Describe what you are seeing in your own words &mdash; "
+         "<em>deploy ran but nothing changed</em>, <em>200 but the data is wrong</em>, "
+         "<em>the command hangs and never returns</em> &mdash; and get the recorded failures "
+         "that produce that exact appearance, each with its discriminating check."),
         ("blind_spots(instrument)", "The one to reach for mid-task. Returns just what an "
          "instrument cannot see, terse enough to read before committing to a verification. "
          "Takes loose names — <code>curl</code>, <code>200</code>, <code>pgrep</code>, "

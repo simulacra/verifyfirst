@@ -17,12 +17,13 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import traceback
 from typing import Any
 
 SERVER_NAME = "verifyfirst"
-SERVER_VERSION = "1.0.0"
+SERVER_VERSION = "1.1.0"
 
 # Protocol versions this server knows how to speak. If the client asks for one
 # of these we echo it back; otherwise we answer with our preferred version and
@@ -183,6 +184,7 @@ class Registry:
         self.instruments: list[dict[str, Any]] = data.get("instruments", [])
         self.entries: list[dict[str, Any]] = data.get("entries", [])
         self.principles: list[dict[str, Any]] = data.get("principles", [])
+        self.symptoms: list[dict[str, Any]] = data.get("symptoms", [])
         self._by_id = {i["id"]: i for i in self.instruments}
 
     def instrument_ids(self) -> list[str]:
@@ -210,6 +212,40 @@ class Registry:
                 return inst
         return None
 
+    def match_symptoms(self, text: str, limit: int = 3) -> list[tuple[float, dict[str, Any]]]:
+        """Rank symptoms against a free-text description.
+
+        Callers describe what they are seeing in their own words, so exact
+        matching would miss almost every real query. Score on token overlap
+        against the symptom, its note, and the false readings of the entries it
+        points at — the false readings are phrased the way someone describes a
+        problem, which makes them the most useful part of the haystack.
+        """
+        want = {w for w in re.findall(r"[a-z0-9]+", text.lower()) if w not in STOPWORDS}
+        if not want:
+            return []
+        scored: list[tuple[float, dict[str, Any]]] = []
+        for sy in self.symptoms:
+            hay = sy.get("symptom", "") + " " + sy.get("note", "")
+            for eid in sy.get("entries", []):
+                e = self.entry(eid)
+                if e:
+                    hay += " " + e.get("false_reading", "") + " " + e.get("title", "")
+            have = {w for w in re.findall(r"[a-z0-9]+", hay.lower()) if w not in STOPWORDS}
+            if not have:
+                continue
+            hits = want & have
+            if not hits:
+                continue
+            # Favour covering the caller's words over merely being a long entry.
+            score = len(hits) / len(want)
+            title_words = {w for w in re.findall(r"[a-z0-9]+", sy.get("symptom", "").lower())
+                           if w not in STOPWORDS}
+            score += 1.2 * len(want & title_words) / max(1, len(title_words))
+            scored.append((score, sy))
+        scored.sort(key=lambda t: -t[0])
+        return scored[:limit]
+
     def entries_for(self, instrument_id: str) -> list[dict[str, Any]]:
         return [e for e in self.entries if e.get("instrument") == instrument_id]
 
@@ -223,6 +259,13 @@ class Registry:
     def entry_ids(self) -> list[str]:
         return [e.get("id", "") for e in self.entries]
 
+
+STOPWORDS = {
+    "a", "an", "the", "is", "it", "its", "i", "my", "we", "and", "or", "but", "of",
+    "to", "in", "on", "at", "for", "with", "that", "this", "was", "were", "be",
+    "been", "am", "are", "not", "no", "do", "does", "did", "have", "has", "had",
+    "so", "if", "then", "there", "when", "what", "why", "how", "me", "you",
+}
 
 REGISTRY: Registry | None = None
 
@@ -369,6 +412,33 @@ TOOLS: list[dict[str, Any]] = [
                 }
             },
             "required": ["id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "from_symptom",
+        "description": (
+            "Start here when something is wrong but you do not yet know why. Describe what you "
+            "are actually observing, in your own words — 'the page is blank', 'deploy ran but "
+            "nothing changed', 'API returns 200 but the data is wrong', 'the service says active "
+            "but is not serving', 'the command hangs and never returns' — and this returns the "
+            "recorded failures that produce that exact appearance, each with the one check that "
+            "tells them apart. This is the symptom-first door into the registry; blind_spots is "
+            "the instrument-first one. Use this when you have a symptom, and blind_spots when you "
+            "are about to verify something and want to know what your method cannot see."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "description": (
+                        "What you are seeing, in plain words. A sentence works better than a "
+                        "keyword: 'screenshot shows a blank page in headless chrome'."
+                    ),
+                }
+            },
+            "required": ["description"],
             "additionalProperties": False,
         },
     },
@@ -535,6 +605,41 @@ def tool_get_entry(reg: Registry, args: dict[str, Any]) -> str:
     return render_entry(e, full=True)
 
 
+def tool_from_symptom(reg: Registry, args: dict[str, Any]) -> str:
+    raw = args.get("description")
+    if not isinstance(raw, str) or not raw.strip():
+        raise ToolInputError(
+            "from_symptom requires a non-empty 'description' string — what you are "
+            "observing, e.g. 'the deploy ran but the site is unchanged'."
+        )
+    if not reg.symptoms:
+        raise ToolInputError("This registry copy carries no symptom index.")
+    matches = reg.match_symptoms(raw)
+    if not matches:
+        lines = [f"Nothing matched {raw!r}. The recorded symptoms are:", ""]
+        lines += [f"  - {sy['symptom']}" for sy in reg.symptoms]
+        lines.append("")
+        lines.append("Or use search(query=...) across every entry.")
+        return "\n".join(lines)
+
+    lines = [f"Symptoms matching {raw!r}:", ""]
+    for score, sy in matches:
+        lines.append(f"* {sy['symptom']}")
+        if sy.get("note"):
+            lines.append(f"  {sy['note']}")
+        lines.append("")
+        for eid in sy.get("entries", []):
+            e = reg.entry(eid)
+            if not e:
+                continue
+            lines.append(f"  {e['id']}  {e.get('title')}")
+            lines.append(f"    actually: {e.get('true_state', '')}")
+            lines.append(f"    CHECK:    {e.get('discriminating_check')}")
+            lines.append("")
+    lines.append("get_entry(id=...) for the full account, including what it costs to miss.")
+    return "\n".join(lines)
+
+
 def tool_get_protocol(reg: Registry, args: dict[str, Any]) -> str:
     lines = ["VERIFY-FIRST PROTOCOL — run before reporting any work complete.", ""]
     for i, (step, note) in enumerate(PROTOCOL_STEPS, start=1):
@@ -556,6 +661,7 @@ HANDLERS = {
     "get_instrument": tool_get_instrument,
     "search": tool_search,
     "get_entry": tool_get_entry,
+    "from_symptom": tool_from_symptom,
     "get_protocol": tool_get_protocol,
 }
 
