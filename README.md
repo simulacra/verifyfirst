@@ -70,9 +70,12 @@ nothing, however much work it took to produce.
 Query the registry from your own tooling instead of fetching web pages:
 
 ```bash
-git clone https://github.com/simulacra/verifyfirst.git
-claude mcp add verifyfirst -- python3 "$PWD/verifyfirst/mcp/server.py"
+claude mcp add verifyfirst -- uvx verifyfirst-mcp
 ```
+
+On [PyPI](https://pypi.org/project/verifyfirst-mcp/) and in the
+[official MCP registry](https://registry.modelcontextprotocol.io/) as
+`io.github.simulacra/verifyfirst`.
 
 Python 3.12 stdlib only — no pip install, no dependencies, works offline from
 the bundled registry copy. Tools: `list_instruments`, `get_instrument`,

@@ -481,8 +481,11 @@ conclusion. Prefer resolved values over authored ones.</pre>
      offline from a bundled copy of the registry.</p>
 
   <h2>Install</h2>
-  <pre class="sh">git clone {E(REPO)}.git
-claude mcp add verifyfirst -- python3 "$PWD/verifyfirst/mcp/server.py"</pre>
+  <pre class="sh">claude mcp add verifyfirst -- uvx verifyfirst-mcp</pre>
+  <p class="note">Published to <a href="https://pypi.org/project/verifyfirst-mcp/">PyPI</a>
+     and listed in the <a href="https://registry.modelcontextprotocol.io/">official MCP
+     registry</a> as <code>io.github.simulacra/verifyfirst</code>. No clone, no path,
+     no dependencies.</p>
   <p class="note">For other MCP clients, the raw stdio config block is in
      <a href="{E(REPO)}/blob/main/mcp/README.md">mcp/README.md</a>.
      Pass <code>--remote</code> to read the live registry instead of the bundled
