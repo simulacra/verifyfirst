@@ -2,133 +2,318 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://verifyfirst.dev/schema/registry.schema.json",
   "title": "verifyfirst registry",
-  "description": "A registry of software failures whose observable signature is indistinguishable from success. Structure is enforced here; the editorial bar that actually matters — that a check discriminates — is enforced by tools/validate.py, because no schema can express it.",
+  "description": "A registry of software failures whose observable signature is indistinguishable from success. Structure is enforced here; the editorial bar that actually matters \u2014 that a check discriminates \u2014 is enforced by tools/validate.py, because no schema can express it.",
   "type": "object",
-  "required": ["site", "version", "updated", "premise", "method", "standard",
-               "license", "instruments", "entries", "principles", "symptoms"],
+  "required": [
+    "site",
+    "version",
+    "updated",
+    "premise",
+    "method",
+    "standard",
+    "license",
+    "instruments",
+    "entries",
+    "principles",
+    "symptoms",
+    "recipes"
+  ],
   "additionalProperties": false,
   "properties": {
-    "site": { "const": "verifyfirst" },
-    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
-    "updated": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
-    "audience": { "type": "string" },
-    "premise": { "type": "string", "minLength": 40 },
-    "method": { "type": "string", "minLength": 40 },
-    "standard": { "type": "string", "minLength": 40 },
-    "license": { "const": "CC0-1.0" },
-
+    "site": {
+      "const": "verifyfirst"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "updated": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "audience": {
+      "type": "string"
+    },
+    "premise": {
+      "type": "string",
+      "minLength": 40
+    },
+    "method": {
+      "type": "string",
+      "minLength": 40
+    },
+    "standard": {
+      "type": "string",
+      "minLength": 40
+    },
+    "license": {
+      "const": "CC0-1.0"
+    },
     "instruments": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "name", "short", "used_when", "captures", "blind_to"],
+        "required": [
+          "id",
+          "name",
+          "short",
+          "used_when",
+          "captures",
+          "blind_to"
+        ],
         "additionalProperties": false,
         "properties": {
-          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
-          "name": { "type": "string" },
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "name": {
+            "type": "string"
+          },
           "short": {
             "type": "string",
             "description": "A noun phrase people actually search for, e.g. 'a screenshot'. Used in page titles."
           },
-          "used_when": { "type": "string" },
-          "captures": { "type": "string" },
+          "used_when": {
+            "type": "string"
+          },
+          "captures": {
+            "type": "string"
+          },
           "blind_to": {
-            "type": "array", "minItems": 2,
-            "items": { "type": "string", "minLength": 20 }
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string",
+              "minLength": 20
+            }
           }
         }
       }
     },
-
     "entries": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/entry" }
+      "items": {
+        "$ref": "#/$defs/entry"
+      }
     },
-
     "symptoms": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["symptom", "note", "entries"],
+        "required": [
+          "symptom",
+          "note",
+          "entries"
+        ],
         "additionalProperties": false,
         "properties": {
           "symptom": {
             "type": "string",
             "description": "Phrased as the reader would describe it, not as the mechanism."
           },
-          "note": { "type": "string" },
+          "note": {
+            "type": "string"
+          },
           "entries": {
-            "type": "array", "minItems": 1,
-            "items": { "type": "string", "pattern": "^NS-\\d{3}$" }
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^NS-\\d{3}$"
+            }
           }
         }
       }
     },
-
     "principles": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "statement", "note"],
+        "required": [
+          "id",
+          "statement",
+          "note"
+        ],
         "additionalProperties": false,
         "properties": {
-          "id": { "type": "string", "pattern": "^P-\\d+$" },
-          "statement": { "type": "string" },
-          "note": { "type": "string" }
+          "id": {
+            "type": "string",
+            "pattern": "^P-\\d+$"
+          },
+          "statement": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "recipes": {
+      "type": "array",
+      "description": "Task-shaped preflight checks. The third way in: instruments assume you have chosen how to look, symptoms assume something has gone wrong, recipes assume only that you are about to call a task done.",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "task",
+          "when",
+          "steps"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "task": {
+            "type": "string",
+            "description": "Phrased as the doer would describe it, first person where natural."
+          },
+          "when": {
+            "type": "string",
+            "description": "The situation this covers, in enough detail to disambiguate from neighbouring recipes."
+          },
+          "steps": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "object",
+              "required": [
+                "check",
+                "how",
+                "guards_against"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "check": {
+                  "type": "string",
+                  "description": "The observation to make. Must name something inspectable, never an attitude."
+                },
+                "how": {
+                  "type": "string",
+                  "description": "The command or expression that makes it."
+                },
+                "guards_against": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^NS-\\d{3}$"
+                  },
+                  "description": "Entry ids this step would catch. A step guarding nothing is advice."
+                }
+              }
+            }
+          }
         }
       }
     }
   },
-
   "$defs": {
     "entry": {
       "type": "object",
-      "required": ["id", "instrument", "title", "class", "false_reading",
-                   "true_state", "why_blind", "discriminating_check",
-                   "cost_of_missing", "generalises_to", "provenance"],
+      "required": [
+        "id",
+        "instrument",
+        "title",
+        "class",
+        "false_reading",
+        "true_state",
+        "why_blind",
+        "discriminating_check",
+        "cost_of_missing",
+        "generalises_to",
+        "provenance"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": { "type": "string", "pattern": "^NS-\\d{3}$" },
-        "instrument": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "id": {
+          "type": "string",
+          "pattern": "^NS-\\d{3}$"
+        },
+        "instrument": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
         "title": {
-          "type": "string", "minLength": 20,
+          "type": "string",
+          "minLength": 20,
           "description": "A declarative sentence naming the mechanism, not a question."
         },
         "title_short": {
-          "type": "string", "maxLength": 60,
+          "type": "string",
+          "maxLength": 60,
           "description": "Written short form for page titles. Not a truncation of `title`."
         },
-        "class": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "class": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
         "false_reading": {
-          "type": "string", "minLength": 40,
+          "type": "string",
+          "minLength": 40,
           "description": "What the evidence appears to show, and the wrong conclusion drawn from it."
         },
-        "true_state": { "type": "string", "minLength": 40 },
+        "true_state": {
+          "type": "string",
+          "minLength": 40
+        },
         "why_blind": {
-          "type": "string", "minLength": 30,
+          "type": "string",
+          "minLength": 30,
           "description": "Why the instrument cannot separate the two readings."
         },
         "discriminating_check": {
-          "type": "string", "minLength": 20,
+          "type": "string",
+          "minLength": 20,
           "description": "One observation that returns a DIFFERENT result under each hypothesis. This is the entry's reason to exist."
         },
-        "cost_of_missing": { "type": "string", "minLength": 20 },
-        "mitigation": { "type": "string" },
-        "generalises_to": { "type": "string", "minLength": 20 },
-        "source": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "cost_of_missing": {
+          "type": "string",
+          "minLength": 20
+        },
+        "mitigation": {
+          "type": "string"
+        },
+        "generalises_to": {
+          "type": "string",
+          "minLength": 20
+        },
+        "source": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        },
         "provenance": {
-          "enum": ["observed", "documented"],
+          "enum": [
+            "observed",
+            "documented"
+          ],
           "description": "observed = diagnosed first-hand. documented = primary source cited AND the check reproduced before publication."
         }
       },
       "allOf": [
         {
           "$comment": "A documented entry is only as good as the source behind it.",
-          "if": { "properties": { "provenance": { "const": "documented" } },
-                  "required": ["provenance"] },
-          "then": { "required": ["source"] }
+          "if": {
+            "properties": {
+              "provenance": {
+                "const": "documented"
+              }
+            },
+            "required": [
+              "provenance"
+            ]
+          },
+          "then": {
+            "required": [
+              "source"
+            ]
+          }
         }
       ]
     }

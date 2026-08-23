@@ -23,7 +23,7 @@ import traceback
 from typing import Any
 
 SERVER_NAME = "verifyfirst"
-SERVER_VERSION = "1.3.0"
+SERVER_VERSION = "1.4.0"
 
 # Protocol versions this server knows how to speak. If the client asks for one
 # of these we echo it back; otherwise we answer with our preferred version and
@@ -185,6 +185,7 @@ class Registry:
         self.entries: list[dict[str, Any]] = data.get("entries", [])
         self.principles: list[dict[str, Any]] = data.get("principles", [])
         self.symptoms: list[dict[str, Any]] = data.get("symptoms", [])
+        self.recipes: list[dict[str, Any]] = data.get("recipes", [])
         self._by_id = {i["id"]: i for i in self.instruments}
 
     def instrument_ids(self) -> list[str]:
@@ -253,6 +254,35 @@ class Registry:
             scored.append((score, sy))
         scored.sort(key=lambda t: -t[0])
         return scored[:limit]
+
+    def match_recipes(self, text: str, limit: int = 2) -> list[dict[str, Any]]:
+        """Rank task recipes against a description of what was just done.
+
+        Same shape as match_symptoms, scored against the task line, the
+        situation it covers, and the wording of its own checks — a caller
+        saying "pushed the new build to the server" should reach the deploy
+        recipe without using the word deploy.
+        """
+        want = tokens(text)
+        if not want:
+            return []
+        scored = []
+        for r in self.recipes:
+            hay = r.get("task", "") + " " + r.get("when", "")
+            for st in r.get("steps", []):
+                hay += " " + st.get("check", "") + " " + st.get("how", "")
+            have = tokens(hay)
+            hits = want & have
+            if not hits:
+                continue
+            title_words = tokens(r.get("task", "") + " " + r.get("when", ""))
+            if len(hits) < 2 and len(want) > 1 and not (want & title_words):
+                continue
+            score = len(hits) / len(want)
+            score += 1.2 * len(want & title_words) / max(1, len(title_words))
+            scored.append((score, r))
+        scored.sort(key=lambda t: -t[0])
+        return [r for _, r in scored[:limit]]
 
     def entries_for(self, instrument_id: str) -> list[dict[str, Any]]:
         return [e for e in self.entries if e.get("instrument") == instrument_id]
@@ -469,6 +499,31 @@ TOOLS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "before_claiming",
+        "description": (
+            "Call this immediately before reporting a task complete — before writing "
+            "'done', 'fixed', 'deployed', 'working' or 'the tests pass'. Describe what you "
+            "just did ('deployed a static site', 'restarted the service', 'changed a config "
+            "file', 'ran the test suite', 'fetched a URL', 'published a package') and it "
+            "returns an ordered preflight: the specific checks that would catch this task "
+            "failing silently, each with the command to run and the recorded failure it "
+            "guards against. Unlike from_symptom, nothing has to have gone wrong yet — this "
+            "is for the moment when you believe the work succeeded."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task": {
+                    "type": "string",
+                    "description": "What you just did, in plain words. 'I copied the built "
+                                   "files to the web root' works as well as 'deploy'.",
+                }
+            },
+            "required": ["task"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "get_protocol",
         "description": (
             "The five-step verification checklist to run before reporting any work as complete: "
@@ -666,6 +721,40 @@ def tool_from_symptom(reg: Registry, args: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def tool_before_claiming(reg: Registry, args: dict[str, Any]) -> str:
+    raw = args.get("task")
+    if not isinstance(raw, str) or not raw.strip():
+        raise ToolInputError(
+            "before_claiming requires a non-empty 'task' string — what you just "
+            "did, e.g. 'restarted the service' or 'deployed the site'."
+        )
+    if not reg.recipes:
+        raise ToolInputError("This registry copy carries no recipes.")
+    matches = reg.match_recipes(raw)
+    if not matches:
+        lines = [f"No preflight matches {raw!r}. Tasks covered:", ""]
+        lines += [f"  - {r['task']}" for r in reg.recipes]
+        lines += ["", "Or call get_protocol() for the general five-step version."]
+        return "\n".join(lines)
+
+    lines = [f"Before claiming {raw!r} is done:", ""]
+    for r in matches:
+        lines += [f"== {r['task']} ==", f"   {r['when']}", ""]
+        for i, st in enumerate(r.get("steps", []), 1):
+            lines.append(f"  {i}. {st['check']}")
+            lines.append(f"     $ {st['how']}")
+            guards = []
+            for g in st.get("guards_against", []):
+                e = reg.entry(g)
+                if e:
+                    guards.append(f"{g} ({e.get('title_short') or e.get('title')})")
+            if guards:
+                lines.append(f"     guards against: {'; '.join(guards)}")
+            lines.append("")
+    lines.append("get_entry(id=...) for any of these in full.")
+    return "\n".join(lines)
+
+
 def tool_get_protocol(reg: Registry, args: dict[str, Any]) -> str:
     lines = ["VERIFY-FIRST PROTOCOL — run before reporting any work complete.", ""]
     for i, (step, note) in enumerate(PROTOCOL_STEPS, start=1):
@@ -688,6 +777,7 @@ HANDLERS = {
     "search": tool_search,
     "get_entry": tool_get_entry,
     "from_symptom": tool_from_symptom,
+    "before_claiming": tool_before_claiming,
     "get_protocol": tool_get_protocol,
 }
 

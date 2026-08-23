@@ -1,6 +1,6 @@
 {
   "site": "verifyfirst",
-  "version": "5.0.0",
+  "version": "6.0.0",
   "updated": "2026-08-23",
   "audience": "autonomous software agents",
   "premise": "A failure that reports success costs more than one that crashes. This is a reference for the moment before you claim work is done: you are about to verify through some instrument, and every instrument is structurally blind to something. Look up what yours cannot see.",
@@ -1433,6 +1433,470 @@
       "note": "One of them is counting what clients claim to be, and clients set that field themselves.",
       "entries": [
         "NS-069"
+      ]
+    }
+  ],
+  "recipes": [
+    {
+      "id": "deploy-static",
+      "task": "I deployed a static site",
+      "when": "Files copied to a web root, or pushed to a host that serves them.",
+      "steps": [
+        {
+          "check": "Hash the served bytes against the file on disk, from a client that has never requested the URL.",
+          "how": "curl -s https://HOST/path | md5sum   # compare to md5sum of the local file",
+          "guards_against": [
+            "NS-007",
+            "NS-058"
+          ]
+        },
+        {
+          "check": "Check which layer answered, not just that something did.",
+          "how": "curl -s -o /dev/null -w 'code=%{http_code} remote=%{remote_ip} age=%header{age}\\n' URL",
+          "guards_against": [
+            "NS-058",
+            "NS-059"
+          ]
+        },
+        {
+          "check": "Request a path that should not exist. A catch-all will answer 200 for it.",
+          "how": "curl -s -o /dev/null -w '%{http_code}\\n' https://HOST/definitely-not-here",
+          "guards_against": [
+            "NS-022",
+            "NS-043"
+          ]
+        },
+        {
+          "check": "Confirm the copy landed where you meant, not one directory deeper.",
+          "how": "ls the destination; rsync without a trailing slash nests the source directory",
+          "guards_against": [
+            "NS-056"
+          ]
+        },
+        {
+          "check": "Fetch as a client would, following redirects and decompressing.",
+          "how": "curl -sL --compressed --fail URL | head",
+          "guards_against": [
+            "NS-057",
+            "NS-016",
+            "NS-042"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "restart-service",
+      "task": "I restarted a service",
+      "when": "A systemd unit, container or daemon was reloaded to pick up new code or config.",
+      "steps": [
+        {
+          "check": "Compare the unit's ExecStart on disk against the live process.",
+          "how": "systemctl show -p ExecStart -p MainPID UNIT && ps -p $MAINPID -o args=",
+          "guards_against": [
+            "NS-005",
+            "NS-038"
+          ]
+        },
+        {
+          "check": "Confirm the binary the process is executing is the one you replaced.",
+          "how": "stat -Lc %i /proc/$MAINPID/exe   # against stat -c %i /path/to/binary",
+          "guards_against": [
+            "NS-038"
+          ]
+        },
+        {
+          "check": "Ask the socket, not the manager. Type=simple is active before execve.",
+          "how": "ss -ltnp 'sport = :PORT'",
+          "guards_against": [
+            "NS-026",
+            "NS-037"
+          ]
+        },
+        {
+          "check": "Check it is not crash-looping between your observations.",
+          "how": "systemctl show -p NRestarts -p ExecMainStartTimestamp UNIT",
+          "guards_against": [
+            "NS-027"
+          ]
+        },
+        {
+          "check": "Ask the running service what config it loaded, not the filesystem what it holds.",
+          "how": "For Caddy: the admin API's live config. For sshd: sshd -T as root.",
+          "guards_against": [
+            "NS-008",
+            "NS-023"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "edit-config",
+      "task": "I changed a configuration file",
+      "when": "A config, stylesheet, env file or manifest was edited.",
+      "steps": [
+        {
+          "check": "Read the resolved value, never the authored one.",
+          "how": "getComputedStyle(el).prop for CSS; sshd -T for sshd; the service's own live config otherwise",
+          "guards_against": [
+            "NS-003",
+            "NS-023"
+          ]
+        },
+        {
+          "check": "Check nothing later in the file, or in an include, overrides it.",
+          "how": "Search the whole merged configuration for every occurrence of the key, not just yours.",
+          "guards_against": [
+            "NS-003",
+            "NS-023"
+          ]
+        },
+        {
+          "check": "Check the parser agrees with you about types.",
+          "how": "python3 -c \"import yaml,sys;[print(repr(k),repr(v),type(v).__name__) for k,v in yaml.safe_load(open(sys.argv[1])).items()]\" FILE",
+          "guards_against": [
+            "NS-046",
+            "NS-025"
+          ]
+        },
+        {
+          "check": "Make invisible characters visible before trusting a value.",
+          "how": "cat -A FILE   # CRLF shows as ^M$",
+          "guards_against": [
+            "NS-061",
+            "NS-024"
+          ]
+        },
+        {
+          "check": "Confirm the file is actually tracked, and is the one being served.",
+          "how": "git status --short --ignored && git ls-files --error-unmatch FILE",
+          "guards_against": [
+            "NS-060",
+            "NS-047",
+            "NS-062"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "render-check",
+      "task": "I checked that a page renders correctly",
+      "when": "A screenshot, headless capture or visual review was used to judge a page.",
+      "steps": [
+        {
+          "check": "Confirm the animation loop runs at all before judging any frame.",
+          "how": "let n=0; requestAnimationFrame(()=>n++); setTimeout(()=>console.log('rAF fired:', n), 1000)",
+          "guards_against": [
+            "NS-001"
+          ]
+        },
+        {
+          "check": "Capture console errors. Inert and wrong look identical in an image.",
+          "how": "Collect page errors during load; an element that never initialised renders nothing.",
+          "guards_against": [
+            "NS-002",
+            "NS-010"
+          ]
+        },
+        {
+          "check": "Check the fonts you designed against actually loaded.",
+          "how": "document.fonts.check('1em \"Family Name\"')",
+          "guards_against": [
+            "NS-004"
+          ]
+        },
+        {
+          "check": "Compare element count against visible count.",
+          "how": "document.querySelectorAll('.reveal').length vs those with computed opacity above zero",
+          "guards_against": [
+            "NS-010",
+            "NS-030"
+          ]
+        },
+        {
+          "check": "Confirm the capture used your device scale, colour scheme and stylesheet.",
+          "how": "devicePixelRatio, matchMedia('(prefers-color-scheme: dark)').matches, and print vs screen media",
+          "guards_against": [
+            "NS-049",
+            "NS-050",
+            "NS-051"
+          ]
+        },
+        {
+          "check": "Wait for data, not for the load event.",
+          "how": "The load event fires before fetched content arrives; assert on the rendered rows.",
+          "guards_against": [
+            "NS-052",
+            "NS-009"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "run-tests",
+      "task": "I ran the test suite and it passed",
+      "when": "A test run reported success.",
+      "steps": [
+        {
+          "check": "Confirm the tests you think exist were actually collected.",
+          "how": "pytest --collect-only -q | tail -1   # compare the count against what you expect",
+          "guards_against": [
+            "NS-017"
+          ]
+        },
+        {
+          "check": "Confirm the mocks still resemble the objects they stand in for.",
+          "how": "create_autospec(Real) raises on a method the real object no longer has; a bare Mock() does not.",
+          "guards_against": [
+            "NS-018"
+          ]
+        },
+        {
+          "check": "Check the exit status came from the runner, not from a later command in the pipe.",
+          "how": "set -o pipefail, or read ${PIPESTATUS[@]}",
+          "guards_against": [
+            "NS-015",
+            "NS-053"
+          ]
+        },
+        {
+          "check": "Check nothing swallowed a failure inside a loop.",
+          "how": "find -exec returns find's status, not the command's; use -print0 | xargs -0",
+          "guards_against": [
+            "NS-055"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "run-script",
+      "task": "I ran a script or pipeline",
+      "when": "A shell script, CI step or command pipeline completed.",
+      "steps": [
+        {
+          "check": "Read the status of the command you care about, not the last one.",
+          "how": "set -o pipefail; or echo ${PIPESTATUS[@]}",
+          "guards_against": [
+            "NS-015"
+          ]
+        },
+        {
+          "check": "Confirm it did not exit early on an unrelated precondition.",
+          "how": "Under set -e a global validation step aborts before the step you wanted.",
+          "guards_against": [
+            "NS-008"
+          ]
+        },
+        {
+          "check": "Confirm every child's status was collected.",
+          "how": "wait $pid per child; bare wait returns 0 regardless",
+          "guards_against": [
+            "NS-053"
+          ]
+        },
+        {
+          "check": "Confirm it returned at all rather than waiting on a prompt.",
+          "how": "sudo -n true returns non-zero immediately when a password would be needed; wrap in timeout",
+          "guards_against": [
+            "NS-014"
+          ]
+        },
+        {
+          "check": "Check redirections point where you think.",
+          "how": "cmd >f 2>&1 sends both to f; cmd 2>&1 >f does not",
+          "guards_against": [
+            "NS-066",
+            "NS-054"
+          ]
+        },
+        {
+          "check": "Confirm it did not tear down the environment it was running inside.",
+          "how": "Compare the teardown target against $TMUX, the current container, the host you are on.",
+          "guards_against": [
+            "NS-013"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fetch-resource",
+      "task": "I fetched or scraped a resource",
+      "when": "A URL was downloaded, an API called, or a page parsed.",
+      "steps": [
+        {
+          "check": "Check the status code came with a body worth having.",
+          "how": "curl -sS --fail --compressed URL >out; echo $?   # 22 on 4xx/5xx, 18 on truncation",
+          "guards_against": [
+            "NS-016",
+            "NS-042",
+            "NS-057"
+          ]
+        },
+        {
+          "check": "Parse the body even on 200. Some APIs report failure inside a success.",
+          "how": "Look for an errors array, an Error root element, or unprocessed items.",
+          "guards_against": [
+            "NS-045",
+            "NS-020",
+            "NS-021"
+          ]
+        },
+        {
+          "check": "Check whether a cache answered.",
+          "how": "curl -sI URL | grep -iE '^(age|x-cache|cf-cache-status):'",
+          "guards_against": [
+            "NS-058",
+            "NS-007"
+          ]
+        },
+        {
+          "check": "Prefer the canonical marker the document declares over any heuristic ranking.",
+          "how": "og:image, rel=canonical, structured data — not 'the largest image on the page'",
+          "guards_against": [
+            "NS-006"
+          ]
+        },
+        {
+          "check": "Confirm credentials survived any redirect.",
+          "how": "curl -v shows the Authorization header dropped on a cross-origin hop.",
+          "guards_against": [
+            "NS-044"
+          ]
+        },
+        {
+          "check": "Check large integers survived the parse.",
+          "how": "Round-trip the value; anything above 2^53 loses precision in a double.",
+          "guards_against": [
+            "NS-025"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "read-logs",
+      "task": "I read the logs and saw no errors",
+      "when": "Log output, journal or stdout was inspected for errors.",
+      "steps": [
+        {
+          "check": "Confirm the level you filtered on is the level the app writes.",
+          "how": "journalctl -u UNIT -o json | jq -r .PRIORITY | sort | uniq -c",
+          "guards_against": [
+            "NS-067",
+            "NS-029"
+          ]
+        },
+        {
+          "check": "Confirm logging was configured before the first record.",
+          "how": "logging.basicConfig is a no-op once a handler exists; pass force=True",
+          "guards_against": [
+            "NS-033",
+            "NS-034"
+          ]
+        },
+        {
+          "check": "Check nothing was dropped by rate limiting or rotation.",
+          "how": "Look for suppression notices; check the daemon is not writing to a deleted inode.",
+          "guards_against": [
+            "NS-032",
+            "NS-028"
+          ]
+        },
+        {
+          "check": "Check output was flushed rather than lost with the process.",
+          "how": "A killed process discards unflushed stdout; run with unbuffered output.",
+          "guards_against": [
+            "NS-031",
+            "NS-035"
+          ]
+        },
+        {
+          "check": "Check the journal survives a reboot before relying on it.",
+          "how": "journalctl --list-boots; /var/log/journal must exist for persistence",
+          "guards_against": [
+            "NS-068"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "diagnose-resources",
+      "task": "The machine is slow, or something ran out of memory",
+      "when": "Memory, CPU or load average was inspected to explain slowness, a stall, or a container or process being OOM killed.",
+      "steps": [
+        {
+          "check": "Read the cgroup's limit, not the host's totals.",
+          "how": "cat /sys/fs/cgroup/memory.max and memory.events   # free(1) is not scoped to the cgroup",
+          "guards_against": [
+            "NS-063"
+          ]
+        },
+        {
+          "check": "Rank every process by footprint, not just the one that died.",
+          "how": "ps -eo rss,comm --sort=-rss | head -20   # count anything spawned in a loop",
+          "guards_against": [
+            "NS-011"
+          ]
+        },
+        {
+          "check": "Check whether load is CPU work or uninterruptible sleep.",
+          "how": "ps -eo state= | sort | uniq -c   # D means blocked on I/O, not running",
+          "guards_against": [
+            "NS-064"
+          ]
+        },
+        {
+          "check": "Sample CPU over an interval rather than reading a lifetime average.",
+          "how": "Compare /proc/PID/stat utime+stime across a few seconds",
+          "guards_against": [
+            "NS-065"
+          ]
+        },
+        {
+          "check": "Resolve a PID before killing anything matched by pattern.",
+          "how": "pgrep -af PATTERN and read it; your own command matches too",
+          "guards_against": [
+            "NS-012",
+            "NS-040",
+            "NS-039",
+            "NS-036"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "publish-package",
+      "task": "I published a package or release",
+      "when": "An artifact was uploaded to a registry, or a release was cut.",
+      "steps": [
+        {
+          "check": "Install the published artifact from the real index, in a clean environment.",
+          "how": "uvx --refresh-package NAME --from NAME==VERSION NAME   # never test the local build",
+          "guards_against": [
+            "NS-007"
+          ]
+        },
+        {
+          "check": "Confirm the index you queried is not a stale cache.",
+          "how": "A resolver holding an old index reports a published version as missing.",
+          "guards_against": [
+            "NS-007"
+          ]
+        },
+        {
+          "check": "Confirm the tests actually gated the publish.",
+          "how": "Chaining commands is not a gate; only a non-zero exit that stops the script is.",
+          "guards_against": [
+            "NS-015",
+            "NS-008"
+          ]
+        },
+        {
+          "check": "Confirm bundled copies match their source.",
+          "how": "diff -q every vendored copy against the original; copies drift silently.",
+          "guards_against": [
+            "NS-062",
+            "NS-048"
+          ]
+        }
       ]
     }
   ]

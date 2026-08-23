@@ -32,6 +32,14 @@ WHAT IT CANNOT SEE
   ...
 ```
 
+## Three ways in
+
+| You have | Door | Example |
+|---|---|---|
+| A task you just finished | [`/recipes`](https://verifyfirst.dev/recipes/) | "I restarted the service" → 5 checks before you call it done |
+| A symptom | [`/symptoms`](https://verifyfirst.dev/symptoms/) | "the deploy ran but nothing changed" → the failures that produce it |
+| A verification method | below | "I took a screenshot" → what it cannot see |
+
 ## The six instruments
 
 | Instrument | You used it when | Plain text |

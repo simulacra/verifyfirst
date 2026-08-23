@@ -179,6 +179,30 @@ def validate(data: dict, r: Report, full: bool = True) -> None:
             r.warn("symptoms", f"{len(orphans)} entr{'y' if len(orphans)==1 else 'ies'} "
                                f"not reachable by symptom: {', '.join(orphans)}")
 
+        # Recipes are content and get the same treatment: every step must name
+        # a command and point at the entry it guards against, or it is advice.
+        for rec in data.get("recipes", []):
+            rid = rec.get("id", "<no id>")
+            where = f"recipe {rid}"
+            for f in ["id", "task", "when", "steps"]:
+                if not rec.get(f):
+                    r.err(where, f"missing '{f}'")
+            if rid != "<no id>" and not SLUG_RE.match(rid):
+                r.err(where, "id should be kebab-case")
+            for i, st in enumerate(rec.get("steps", []), 1):
+                for f in ["check", "how", "guards_against"]:
+                    if not st.get(f):
+                        r.err(where, f"step {i} missing '{f}'")
+                low = str(st.get("check", "")).lower()
+                for phrase in NON_CHECKS:
+                    if phrase in low:
+                        r.err(where, f"step {i} says {phrase!r} — a step must name an "
+                                     f"observation, not an attitude")
+                        break
+                for g in st.get("guards_against", []):
+                    if g not in ids:
+                        r.err(where, f"step {i} guards against unknown entry {g}")
+
         counts: dict = {}
         for e in data.get("entries", []):
             counts[e.get("instrument")] = counts.get(e.get("instrument"), 0) + 1

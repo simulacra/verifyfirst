@@ -55,6 +55,7 @@ gtag('js',new Date());gtag('config','{GA_ID}');</script>""" if GA_ID else "")
 INSTRUMENTS = DATA["instruments"]
 ENTRIES = DATA["entries"]
 SYMPTOMS = DATA.get("symptoms", [])
+RECIPES = DATA.get("recipes", [])
 BY_ID = {e["id"]: e for e in DATA["entries"]}
 BY_INSTRUMENT = {i["id"]: [e for e in ENTRIES if e["instrument"] == i["id"]] for i in INSTRUMENTS}
 
@@ -150,6 +151,25 @@ dt{font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:up
   color:var(--faint);padding-top:.32rem}
 dd{margin:0;font-size:15px}
 dt.cost-k{color:var(--blind)}
+.rec{list-style:none;margin:0 0 1rem;padding:0;display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(19rem,1fr));gap:1px;
+  background:var(--rule-soft);border:1px solid var(--rule-soft)}
+.rec li{background:var(--panel);padding:1rem 1.1rem}
+.rec a.t{display:block;color:var(--ink);text-decoration:none;font-weight:600;
+  font-size:1rem;line-height:1.35;margin-bottom:.3rem}
+.rec li:hover a.t,.rec a.t:focus-visible{color:var(--signal)}
+.rec .w{color:var(--dim);font-size:13.5px;display:block;margin-bottom:.5rem}
+.rec .c{font-family:var(--mono);font-size:11.5px;color:var(--faint);letter-spacing:.08em}
+ol.steps{list-style:none;counter-reset:s;margin:0;padding:0}
+ol.steps>li{counter-increment:s;position:relative;padding:0 0 0 2.6rem;margin:0 0 1.6rem}
+ol.steps>li::before{content:counter(s);position:absolute;left:0;top:.05rem;width:1.7rem;
+  height:1.7rem;border:1px solid var(--rule);display:grid;place-items:center;
+  font-family:var(--mono);font-size:11px;color:var(--signal)}
+ol.steps .what{font-weight:600;display:block;margin-bottom:.45rem}
+ol.steps .guards{font-family:var(--mono);font-size:11.5px;color:var(--faint);
+  display:block;margin-top:.5rem}
+ol.steps .guards a{color:var(--faint);text-decoration:none;margin-right:.5rem}
+ol.steps .guards a:hover{color:var(--signal)}
 .sym{list-style:none;margin:0 0 1rem;padding:0;display:grid;
   grid-template-columns:repeat(auto-fit,minmax(20rem,1fr));gap:1px;
   background:var(--rule-soft);border:1px solid var(--rule-soft)}
@@ -190,7 +210,7 @@ ol.pr p{margin:.25rem 0 0;color:var(--dim);font-size:14.5px}
 .formats code{color:var(--ink)}
 pre.sh{font-size:13px;background:var(--panel);border:1px solid var(--rule-soft);
   padding:.85rem 1rem;overflow-x:auto;color:var(--signal);margin:0 0 1.2rem;max-width:46rem}
-ul.plain{list-style:none;padding:0;margin:0 0 1.4rem}\nul.plain li{padding:.35rem 0;border-bottom:1px solid var(--rule-soft);font-size:14.5px}\nfooter{margin-top:4.5rem;padding-top:1.2rem;border-top:1px solid var(--rule-soft);
+code.how{display:block;margin:.3rem 0 0;padding:.5rem .7rem;background:rgba(121,205,245,.06);border-left:2px solid var(--signal);color:var(--signal);font-size:13px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}\nul.plain{list-style:none;padding:0;margin:0 0 1.4rem}\nul.plain li{padding:.35rem 0;border-bottom:1px solid var(--rule-soft);font-size:14.5px}\nfooter{margin-top:4.5rem;padding-top:1.2rem;border-top:1px solid var(--rule-soft);
   font-family:var(--mono);font-size:12px;color:var(--faint);max-width:46rem}
 footer a{color:var(--dim)}
 .by{display:block;margin-top:.8rem;padding-top:.8rem;border-top:1px solid var(--rule-soft);
@@ -242,6 +262,7 @@ def shell(title: str, desc: str, body: str, canonical: str, narrow: bool = False
   <div class="mast">
     <a class="home" href="/">verify<span>first</span></a>
     <nav>
+      <a href="/recipes/">preflight</a>
       <a href="/symptoms/">symptoms</a>
       <a href="/registry/">registry</a>
       <a href="/protocol/">protocol</a>
@@ -363,6 +384,12 @@ def build() -> None:
       </a>"""
         for i in INSTRUMENTS
     )
+    recipe_cards = "\n".join(
+        f"""      <li><a class="t" href="/recipes/{E(r['id'])}/">{E(r['task'])}</a>
+        <span class="w">{E(r['when'])}</span>
+        <span class="c">{len(r['steps'])} checks</span></li>"""
+        for r in RECIPES
+    )
     symptom_cards = "\n".join(
         f"""      <li><a class="q" href="/e/{E(sy['entries'][0])}/">{E(sy['symptom'])}</a>
         <span class="n2">{E(sy['note'])}</span>
@@ -379,7 +406,14 @@ def build() -> None:
   <p class="sub">v{E(DATA['version'])} &middot; {len(ENTRIES)} entries &middot;
      {len(INSTRUMENTS)} instruments &middot; updated {E(DATA['updated'])}</p>
 
-  <h2>What are you seeing?</h2>
+  <h2>What did you just do?</h2>
+    <ul class="rec">
+{recipe_cards}
+    </ul>
+  <p class="note">Preflight checks by task, for the moment before you say a thing is
+     done &mdash; when nothing has gone wrong yet and there is no symptom to look up.</p>
+
+  <h2>Or: what are you seeing?</h2>
     <ul class="sym">
 {symptom_cards}
     </ul>
@@ -410,6 +444,7 @@ curl {E(BASE.replace('https://',''))}/all.txt          # the whole registry, one
   <p class="formats">
      <a href="/registry.json"><code>registry.json</code></a> — everything, structured<br>
      <a href="/registry.jsonl"><code>registry.jsonl</code></a> — one entry per line<br>
+     <a href="/recipes.txt"><code>recipes.txt</code></a> — preflight checks by task<br>
      <a href="/all.txt"><code>all.txt</code></a> — the entire registry as plain text<br>
      <a href="/symptoms.txt"><code>symptoms.txt</code></a> — symptoms and their checks<br>
      <a href="/llms.txt"><code>llms.txt</code></a> — orientation<br>
@@ -534,6 +569,62 @@ conclusion. Prefer resolved values over authored ones.</pre>
             f"{e['false_reading'][:150]}",
             body, f"{BASE}/e/{e['id']}/", narrow=True), encoding="utf-8")
         urls.append(f"{BASE}/e/{e['id']}/")
+
+    # --- recipes -------------------------------------------------------------
+    rd = OUT / "recipes"
+    rd.mkdir(exist_ok=True)
+    for r in RECIPES:
+        steps = []
+        for st in r["steps"]:
+            guards = " ".join(
+                f'<a href="/e/{E(g)}/" title="{E((BY_ID[g].get("title_short") or BY_ID[g]["title"]))}">{E(g)}</a>'
+                for g in st["guards_against"] if g in BY_ID)
+            steps.append(
+                f'      <li><span class="what">{E(st["check"])}</span>'
+                f'<code class="how">{E(st["how"])}</code>'
+                f'<span class="guards">guards against {guards}</span></li>')
+        body = f"""  <p class="sub"><a href="/recipes/">preflight</a> &middot; {len(r['steps'])} checks</p>
+  <h1>{E(r['task'])}</h1>
+  <p class="lede">{E(r['when'])}</p>
+  <h2>Before you call it done</h2>
+    <ol class="steps">
+{chr(10).join(steps)}
+    </ol>
+  <p class="note">Plain text: <a href="/recipes.txt"><code>/recipes.txt</code></a>
+     &middot; <a href="/recipes/">all tasks</a></p>"""
+        dd = rd / r["id"]
+        dd.mkdir(exist_ok=True)
+        (dd / "index.html").write_text(shell(
+            _title60(r["task"], suffix=" — preflight"),
+            f"Preflight checks for: {r['when']} {r['steps'][0]['check']}",
+            body, f"{BASE}/recipes/{r['id']}/", narrow=True), encoding="utf-8")
+        urls.append(f"{BASE}/recipes/{r['id']}/")
+
+    rec_body = """  <h1>What did you just do?</h1>
+  <p class="lede">Preflight checks by task. Instruments assume you have chosen how to
+     look; symptoms assume something has already gone wrong. These assume only that you
+     are about to say a task is finished &mdash; which is the one thing that is always
+     true at the moment this reference is for.</p>
+    <ul class="rec">
+""" + recipe_cards + """
+    </ul>"""
+    (rd / "index.html").write_text(shell(
+        "Preflight checks by task | verifyfirst",
+        "Before you say the deploy is live, the service restarted, the tests passed: "
+        "the checks that would catch it if they had not.",
+        rec_body, f"{BASE}/recipes/"), encoding="utf-8")
+    urls.append(f"{BASE}/recipes/")
+
+    rec_txt = ["VERIFYFIRST // recipes",
+               "Preflight checks for the moment before you call work done.", ""]
+    for r in RECIPES:
+        rec_txt += ["=" * 70, f"TASK: {r['task']}", f"      {r['when']}", "=" * 70]
+        for i, st in enumerate(r["steps"], 1):
+            rec_txt += [f"  {i}. {st['check']}",
+                        f"     $ {st['how']}",
+                        f"     guards against: {', '.join(st['guards_against'])}", ""]
+    rec_txt += [f"Full registry: {BASE}/all.txt", ""]
+    (OUT / "recipes.txt").write_text("\n".join(rec_txt), encoding="utf-8")
 
     # --- symptoms ------------------------------------------------------------
     sym_body = """  <h1>What are you seeing?</h1>

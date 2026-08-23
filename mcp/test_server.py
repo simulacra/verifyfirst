@@ -28,6 +28,7 @@ EXPECTED_TOOLS = {
     "search",
     "get_entry",
     "from_symptom",
+    "before_claiming",
     "get_protocol",
 }
 
@@ -534,6 +535,59 @@ class TestFromSymptom(MCPTestCase):
                 self.assertTrue(sy["entries"])
                 for eid in sy["entries"]:
                     self.assertIn(eid, ids)
+
+
+class TestBeforeClaiming(MCPTestCase):
+    """The task-first door. Asserts on how someone would describe what they
+    just did, not on the wording of the recipe."""
+
+    def test_plain_tasks_reach_the_right_recipe(self) -> None:
+        self.handshake()
+        cases = [
+            ("I copied the built files to the web root", "I deployed a static site"),
+            ("restarted the systemd unit", "I restarted a service"),
+            ("edited the nginx config", "I changed a configuration file"),
+            ("the test suite is green", "I ran the test suite and it passed"),
+            ("took a screenshot of the page", "I checked that a page renders correctly"),
+            ("uploaded the package to pypi", "I published a package or release"),
+            ("downloaded a json file from an api", "I fetched or scraped a resource"),
+            ("the container got OOM killed",
+             "The machine is slow, or something ran out of memory"),
+        ]
+        for task, expected in cases:
+            with self.subTest(task=task):
+                text = self.client.call_text("before_claiming", {"task": task})
+                first = next(l[3:-3] for l in text.split("\n") if l.startswith("== "))
+                self.assertEqual(first, expected)
+
+    def test_steps_carry_a_command_and_what_they_guard(self) -> None:
+        self.handshake()
+        text = self.client.call_text("before_claiming", {"task": "restarted the service"})
+        self.assertIn("$ ", text)
+        self.assertIn("guards against:", text)
+        self.assertIn("NS-", text)
+
+    def test_nonsense_lists_the_covered_tasks(self) -> None:
+        self.handshake()
+        text = self.client.call_text("before_claiming", {"task": "zzz nonsense words here"})
+        self.assertIn("No preflight matches", text)
+        for r in self.registry["recipes"]:
+            self.assertIn(r["task"], text)
+
+    def test_empty_task_is_a_tool_error(self) -> None:
+        self.handshake()
+        self.assertTrue(self.client.call_tool("before_claiming", {"task": " "})["result"]
+                        .get("isError"))
+
+    def test_every_recipe_step_guards_a_real_entry(self) -> None:
+        self.handshake()
+        ids = {e["id"] for e in self.registry["entries"]}
+        for r in self.registry["recipes"]:
+            for st in r["steps"]:
+                with self.subTest(recipe=r["id"], check=st["check"][:40]):
+                    self.assertTrue(st["guards_against"])
+                    for g in st["guards_against"]:
+                        self.assertIn(g, ids)
 
 
 if __name__ == "__main__":
