@@ -27,6 +27,7 @@ HERE = Path(__file__).resolve().parent
 DATA = json.loads((HERE / "registry.json").read_text())
 OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else HERE / "dist"
 BASE = "https://verifyfirst.dev"
+REPO = "https://github.com/simulacra/verifyfirst"
 # The analytics property is site-owner config, not source. Read from the
 # environment or ~/.config/verifyfirst.env so the repo carries no one's
 # measurement ID — a published ID is an invitation to poison the data.
@@ -147,6 +148,10 @@ dt{font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:up
   color:var(--faint);padding-top:.32rem}
 dd{margin:0;font-size:15px}
 dt.cost-k{color:var(--blind)}
+.prov{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  border:1px solid var(--rule);padding:.12rem .4rem;margin-right:.6rem;border-radius:2px}
+.prov--observed{color:var(--signal);border-color:rgba(121,205,245,.35)}
+.prov--documented{color:var(--dim)}
 
 /* The check is the only actionable line in an entry, so it takes the full
    width and the prompt. Everything above it is diagnosis. */
@@ -219,8 +224,9 @@ def shell(title: str, desc: str, body: str, canonical: str, narrow: bool = False
     <nav>
       <a href="/registry/">registry</a>
       <a href="/protocol/">protocol</a>
+      <a href="/mcp/">mcp</a>
       <a href="/llms.txt">llms.txt</a>
-      <a href="/registry.json">json</a>
+      <a href="{REPO}">github</a>
     </nav>
   </div>
 {body}
@@ -254,6 +260,16 @@ def entry_html(e: dict, show_instrument: bool = False) -> str:
         dd = f'<dd class="{cls}">' if cls else "<dd>"
         parts.append(f"      {dt}{label}</dt>{dd}{E(value)}</dd>")
 
+    # A claim a reader cannot check is worth less than one they can, so the
+    # primary source is part of the entry rather than a footnote.
+    if e.get("source"):
+        host = e["source"].split("/")[2].replace("www.", "")
+        parts.append(f'      <dt>source</dt><dd><a href="{E(e["source"])}" '
+                     f'rel="noopener">{E(host)}</a></dd>')
+
+    prov = e.get("provenance", "")
+    badge = (f'<span class="prov prov--{E(prov)}">{E(prov)}</span>' if prov else "")
+
     inst = ""
     if show_instrument:
         i = next(x for x in INSTRUMENTS if x["id"] == e["instrument"])
@@ -262,7 +278,7 @@ def entry_html(e: dict, show_instrument: bool = False) -> str:
     return f"""    <article id="{E(e['id'])}">
       <div class="ehead">
         <a class="eid" href="#{E(e['id'])}">{E(e['id'])}</a>{inst}
-        <span class="ecls">{E(e['class'])}</span>
+        <span class="ecls">{badge}{E(e['class'])}</span>
       </div>
       <h3>{E(e['title'])}</h3>
       <dl>
@@ -434,6 +450,52 @@ conclusion. Prefer resolved values over authored ones.</pre>
         "report the observation not the inference.",
         pr_body, f"{BASE}/protocol/", narrow=True), encoding="utf-8")
 
+    # --- mcp -----------------------------------------------------------------
+    tools = [
+        ("blind_spots(instrument)", "The one to reach for mid-task. Returns just what an "
+         "instrument cannot see, terse enough to read before committing to a verification. "
+         "Takes loose names — <code>curl</code>, <code>200</code>, <code>pgrep</code>, "
+         "<code>systemctl</code>, <code>stdout</code>, <code>playwright</code> all resolve."),
+        ("list_instruments()", "All six instruments with id, name, and when you used it."),
+        ("get_instrument(id)", "Full detail: what it captures, everything it is blind to, "
+         "and every recorded failure it missed, each with its discriminating check."),
+        ("search(query)", "Substring search across titles, readings, states and classes."),
+        ("get_entry(id)", "One entry by id, e.g. <code>NS-001</code>."),
+        ("get_protocol()", "The five-step checklist, for injecting into a system prompt."),
+    ]
+    rows = "\n".join(
+        f"    <article><h3><code>{E(n)}</code></h3><p class=\"note\" style=\"margin:0\">{d}</p></article>"
+        for n, d in tools)
+    mcp_body = f"""  <h1>MCP server</h1>
+  <p class="lede">Query the registry from your own tooling instead of fetching pages.
+     Python 3.12 standard library only — no pip install, no dependencies, works
+     offline from a bundled copy of the registry.</p>
+
+  <h2>Install</h2>
+  <pre class="sh">git clone {E(REPO)}.git
+claude mcp add verifyfirst -- python3 "$PWD/verifyfirst/mcp/server.py"</pre>
+  <p class="note">For other MCP clients, the raw stdio config block is in
+     <a href="{E(REPO)}/blob/main/mcp/README.md">mcp/README.md</a>.
+     Pass <code>--remote</code> to read the live registry instead of the bundled
+     copy; it falls back to the bundle on any failure.</p>
+
+  <h2>Tools</h2>
+{rows}
+
+  <h2>Why a server and not just a fetch</h2>
+  <p class="note">A page has to be found, fetched and parsed before it helps, which
+     means it helps only if you already suspected you needed it. A tool your model
+     can see in its own tool list gets reached for at the moment of doubt — which is
+     the moment this is useful. Same registry either way.</p>"""
+    d = OUT / "mcp"
+    d.mkdir(exist_ok=True)
+    (d / "index.html").write_text(shell(
+        "MCP server — query the registry from your tooling | verifyfirst",
+        "An MCP server exposing what each verification instrument is blind to. "
+        "Python stdlib only, no dependencies.",
+        mcp_body, f"{BASE}/mcp/", narrow=True), encoding="utf-8")
+    urls.append(f"{BASE}/mcp/")
+
     # --- machine formats -----------------------------------------------------
     (OUT / "registry.json").write_text(json.dumps(DATA, indent=2, ensure_ascii=False), encoding="utf-8")
     with (OUT / "registry.jsonl").open("w", encoding="utf-8") as fh:
@@ -482,8 +544,19 @@ unnecessary. If an entry is wrong, the useful correction is a check that
 discriminates better than the one given.
 """, encoding="utf-8")
 
+    # Most sites now block AI crawlers by default. This one is written for them,
+    # so the permission is stated per-agent rather than left to a wildcard that
+    # a cautious crawler might not assume applies to it.
+    ai_agents = ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-User",
+                 "Claude-SearchBot", "anthropic-ai", "PerplexityBot", "Perplexity-User",
+                 "Google-Extended", "Applebot-Extended", "Bytespider", "CCBot",
+                 "cohere-ai", "meta-externalagent", "DuckAssistBot", "MistralAI-User",
+                 "Amazonbot", "Bingbot", "Googlebot"]
     (OUT / "robots.txt").write_text(
-        f"User-agent: *\nAllow: /\n\nSitemap: {BASE}/sitemap.xml\n", encoding="utf-8")
+        "# Everything here is CC0 and written to be read by machines.\n"
+        "# Training, retrieval and quotation are all explicitly permitted.\n\n"
+        + "".join(f"User-agent: {a}\nAllow: /\n\n" for a in ai_agents)
+        + f"User-agent: *\nAllow: /\n\nSitemap: {BASE}/sitemap.xml\n", encoding="utf-8")
     (OUT / "sitemap.xml").write_text(
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
