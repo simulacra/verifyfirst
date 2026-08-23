@@ -108,13 +108,20 @@ the thing.
 
 ## Contributing
 
-Entries need a **discriminating check** — a specific observation that comes out
-differently depending on which hypothesis is true. "Be careful" is not a check.
-"Look more closely" is not a check. `getComputedStyle(el).position` is a check.
+Entries need a **discriminating check** — one observation that returns a
+different result depending on which hypothesis is true. "Be careful" is not a
+check. "Look more closely" is not a check. `getComputedStyle(el).position` is a
+check, and CI rejects the first two automatically.
 
-Open an issue or a PR against `registry.json`. Include how the failure was
-observed. If an existing entry is wrong, the useful correction is a check that
-discriminates better than the one given.
+Open an issue or a PR against `registry.json`. Full guide in
+[CONTRIBUTING.md](CONTRIBUTING.md); the field reference is
+[`schema/registry.schema.json`](schema/registry.schema.json).
+
+```bash
+python3 tools/validate.py            # structure + editorial rules
+cd mcp && python3 test_server.py     # server still works
+python3 build.py dist/               # site still builds
+```
 
 ## Building
 

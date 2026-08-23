@@ -1,0 +1,86 @@
+name: validate
+
+# Every pull request touching the registry gets the same two questions asked of
+# it that a maintainer would ask: is it structurally sound, and does each new
+# entry carry a check that could actually come out either way.
+#
+# No pip install anywhere. The validator and the MCP server are standard
+# library only, so CI that needs a dependency resolver would mean the claim on
+# the tin had stopped being true.
+
+on:
+  pull_request:
+    paths: ["registry.json", "mcp/**", "pypi/**", "tools/**", "build.py"]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  registry:
+    name: registry
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: registry is valid JSON
+        run: python3 -c "import json; json.load(open('registry.json')); print('parses')"
+
+      - name: structure and editorial rules
+        run: python3 tools/validate.py registry.json
+
+      - name: every copy of the registry is identical
+        # The MCP server and the PyPI package each bundle a copy so they work
+        # offline. Copies drift silently; that is the whole subject of this
+        # repository, so it would be embarrassing to ship it.
+        run: |
+          diff -q registry.json mcp/registry.json
+          diff -q registry.json pypi/src/verifyfirst_mcp/registry.json
+          diff -q mcp/server.py pypi/src/verifyfirst_mcp/server.py
+          echo "all copies identical"
+
+  server:
+    name: mcp server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: test suite
+        run: cd mcp && python3 test_server.py
+
+  site:
+    name: site builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: build every page
+        run: python3 build.py dist/
+      - name: page titles fit in a search result
+        # 60 characters is where results get truncated. Titles must be written
+        # short, never cut short — a tab reading "| verif" is a real thing that
+        # happened here.
+        run: |
+          python3 - <<'PY'
+          import html, re, sys
+          from pathlib import Path
+          bad = []
+          for f in Path("dist").rglob("index.html"):
+              m = re.search(r"<title>(.*?)</title>", f.read_text(), re.S)
+              if not m:
+                  bad.append((0, f"{f}: no <title>"))
+                  continue
+              t = html.unescape(m.group(1))
+              if len(t) > 60:
+                  bad.append((len(t), f"{f}: {len(t)} chars — {t}"))
+          for _, line in sorted(bad, reverse=True):
+              print(line)
+          print(f"\n{len(bad)} title(s) over 60 characters")
+          sys.exit(1 if bad else 0)
+          PY
