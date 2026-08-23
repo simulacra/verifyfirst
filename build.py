@@ -54,6 +54,8 @@ gtag('js',new Date());gtag('config','{GA_ID}');</script>""" if GA_ID else "")
 
 INSTRUMENTS = DATA["instruments"]
 ENTRIES = DATA["entries"]
+SYMPTOMS = DATA.get("symptoms", [])
+BY_ID = {e["id"]: e for e in DATA["entries"]}
 BY_INSTRUMENT = {i["id"]: [e for e in ENTRIES if e["instrument"] == i["id"]] for i in INSTRUMENTS}
 
 E = lambda s: html.escape(str(s), quote=True)
@@ -148,6 +150,17 @@ dt{font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:up
   color:var(--faint);padding-top:.32rem}
 dd{margin:0;font-size:15px}
 dt.cost-k{color:var(--blind)}
+.sym{list-style:none;margin:0 0 1rem;padding:0;display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(20rem,1fr));gap:1px;
+  background:var(--rule-soft);border:1px solid var(--rule-soft)}
+.sym li{background:var(--panel);padding:.9rem 1rem}
+.sym a.q{display:block;color:var(--ink);text-decoration:none;font-weight:600;font-size:.98rem;
+  line-height:1.35;margin-bottom:.3rem}
+.sym li:hover a.q,.sym a.q:focus-visible{color:var(--signal)}
+.sym .n2{color:var(--dim);font-size:13.5px;display:block;margin-bottom:.5rem}
+.sym .refs{font-family:var(--mono);font-size:11.5px}
+.sym .refs a{color:var(--faint);text-decoration:none;margin-right:.5rem}
+.sym .refs a:hover{color:var(--signal)}
 .prov{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
   border:1px solid var(--rule);padding:.12rem .4rem;margin-right:.6rem;border-radius:2px}
 .prov--observed{color:var(--signal);border-color:rgba(121,205,245,.35)}
@@ -177,7 +190,7 @@ ol.pr p{margin:.25rem 0 0;color:var(--dim);font-size:14.5px}
 .formats code{color:var(--ink)}
 pre.sh{font-size:13px;background:var(--panel);border:1px solid var(--rule-soft);
   padding:.85rem 1rem;overflow-x:auto;color:var(--signal);margin:0 0 1.2rem;max-width:46rem}
-footer{margin-top:4.5rem;padding-top:1.2rem;border-top:1px solid var(--rule-soft);
+ul.plain{list-style:none;padding:0;margin:0 0 1.4rem}\nul.plain li{padding:.35rem 0;border-bottom:1px solid var(--rule-soft);font-size:14.5px}\nfooter{margin-top:4.5rem;padding-top:1.2rem;border-top:1px solid var(--rule-soft);
   font-family:var(--mono);font-size:12px;color:var(--faint);max-width:46rem}
 footer a{color:var(--dim)}
 .by{display:block;margin-top:.8rem;padding-top:.8rem;border-top:1px solid var(--rule-soft);
@@ -229,6 +242,7 @@ def shell(title: str, desc: str, body: str, canonical: str, narrow: bool = False
   <div class="mast">
     <a class="home" href="/">verify<span>first</span></a>
     <nav>
+      <a href="/symptoms/">symptoms</a>
       <a href="/registry/">registry</a>
       <a href="/protocol/">protocol</a>
       <a href="/mcp/">mcp</a>
@@ -249,6 +263,18 @@ def shell(title: str, desc: str, body: str, canonical: str, narrow: bool = False
 </body>
 </html>
 """
+
+
+def _title60(title: str, suffix: str = " | verifyfirst") -> str:
+    """Fit a title inside 60 characters without cutting a word in half.
+    Truncating the assembled string is how you get "| verif" in a tab."""
+    room = 60 - len(suffix)
+    if len(title) <= room:
+        return title + suffix
+    cut = title[:room]
+    if " " in cut:
+        cut = cut[:cut.rfind(" ")]
+    return cut.rstrip(" ,.;:—-") + suffix
 
 
 def entry_html(e: dict, show_instrument: bool = False) -> str:
@@ -337,6 +363,13 @@ def build() -> None:
       </a>"""
         for i in INSTRUMENTS
     )
+    symptom_cards = "\n".join(
+        f"""      <li><a class="q" href="/e/{E(sy['entries'][0])}/">{E(sy['symptom'])}</a>
+        <span class="n2">{E(sy['note'])}</span>
+        <span class="refs">""" + " ".join(
+            f'<a href="/e/{E(r)}/">{E(r)}</a>' for r in sy["entries"]) + "</span></li>"
+        for sy in SYMPTOMS
+    )
     principles = "\n".join(
         f'      <li><b>{E(p["statement"])}</b><p>{E(p["note"])}</p></li>'
         for p in DATA["principles"]
@@ -346,7 +379,12 @@ def build() -> None:
   <p class="sub">v{E(DATA['version'])} &middot; {len(ENTRIES)} entries &middot;
      {len(INSTRUMENTS)} instruments &middot; updated {E(DATA['updated'])}</p>
 
-  <h2>How did you verify?</h2>
+  <h2>What are you seeing?</h2>
+    <ul class="sym">
+{symptom_cards}
+    </ul>
+
+  <h2>Or: how did you verify?</h2>
   <div class="pick">
 {cards}
   </div>
@@ -458,6 +496,55 @@ conclusion. Prefer resolved values over authored ones.</pre>
         "Name the instrument, say what it cannot see, run one check that could fail, "
         "report the observation not the inference.",
         pr_body, f"{BASE}/protocol/", narrow=True), encoding="utf-8")
+
+    # --- one page per entry ------------------------------------------------
+    # Anchors are not addressable for a search engine or citable in isolation.
+    # A page each gives 30 focused URLs, one per specific failure.
+    ed = OUT / "e"
+    ed.mkdir(exist_ok=True)
+    for e in ENTRIES:
+        inst = next(i for i in INSTRUMENTS if i["id"] == e["instrument"])
+        rel = [x for x in ENTRIES
+               if x["instrument"] == e["instrument"] and x["id"] != e["id"]][:5]
+        rel_html = "".join(
+            f'<li><a href="/e/{E(x["id"])}/">{E(x["id"])}</a> &mdash; {E(x["title"])}</li>'
+            for x in rel)
+        sym_html = "".join(
+            f'<li><a href="/symptoms/">{E(sy["symptom"])}</a></li>'
+            for sy in SYMPTOMS if e["id"] in sy["entries"])
+        body = f"""  <p class="sub"><a href="/{E(e['instrument'])}/">{E(inst['name'])}</a>
+     &middot; {E(e['class'])} &middot; {E(e.get('provenance',''))}</p>
+  <h1>{E(e['title'])}</h1>
+{entry_html(e)}
+  <h2>Reported as</h2>
+  <ul class="plain">{sym_html or '<li>&mdash;</li>'}</ul>
+  <h2>Others this instrument misses</h2>
+  <ul class="plain">{rel_html}</ul>
+  <p class="note"><a href="/{E(e['instrument'])}.txt">plain text</a> &middot;
+     <a href="/registry/">full registry</a></p>"""
+        d2 = ed / e["id"]
+        d2.mkdir(exist_ok=True)
+        (d2 / "index.html").write_text(shell(
+            _title60(e.get("title_short") or e["title"], suffix=""),
+            f"{e['false_reading'][:150]}",
+            body, f"{BASE}/e/{e['id']}/", narrow=True), encoding="utf-8")
+        urls.append(f"{BASE}/e/{e['id']}/")
+
+    # --- symptoms ------------------------------------------------------------
+    sym_body = """  <h1>What are you seeing?</h1>
+  <p class="lede">The same registry, entered by symptom rather than by instrument.
+     You usually know what it looks like before you know how you were fooled.</p>
+    <ul class="sym">
+""" + symptom_cards + """
+    </ul>"""
+    d2 = OUT / "symptoms"
+    d2.mkdir(exist_ok=True)
+    (d2 / "index.html").write_text(shell(
+        "Symptoms — what you are seeing | verifyfirst",
+        "Blank pages, deploys that do nothing, 200s with wrong data, services that "
+        "say active but do not serve. Routed to the failure that causes them.",
+        sym_body, f"{BASE}/symptoms/"), encoding="utf-8")
+    urls.append(f"{BASE}/symptoms/")
 
     # --- mcp -----------------------------------------------------------------
     tools = [
