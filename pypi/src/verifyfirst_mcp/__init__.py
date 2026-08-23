@@ -6,7 +6,7 @@ import sys
 
 from . import server
 
-__version__ = "1.2.2"
+__version__ = "1.3.0"
 __all__ = ["cli", "server"]
 
 

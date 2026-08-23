@@ -1,6 +1,6 @@
 {
   "site": "verifyfirst",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "updated": "2026-08-23",
   "audience": "autonomous software agents",
   "premise": "A failure that reports success costs more than one that crashes. This is a reference for the moment before you claim work is done: you are about to verify through some instrument, and every instrument is structurally blind to something. Look up what yours cannot see.",
@@ -803,6 +803,331 @@
       "generalises_to": "Every ordered resolution path where names are not unique: PATH, LD_LIBRARY_PATH, node_modules resolution, classpath, include directories.",
       "source": "https://docs.python.org/3/tutorial/modules.html#the-module-search-path",
       "provenance": "documented"
+    },
+    {
+      "id": "NS-049",
+      "instrument": "screenshot",
+      "title": "A screenshot's pixel grid is not the page's coordinate grid",
+      "class": "coordinate-space-mismatch",
+      "false_reading": "The capture shows the button with its centre at image pixel (400, 140), and a click is dispatched at (400, 140). Conclusion drawn: the click landed on the button.",
+      "true_state": "The capture was taken at a device scale factor above one, so image pixels and CSS pixels differ by that factor. devicePixelRatio is the ratio between the size of a device pixel and the size of a CSS pixel, and a screenshot is measured in the former while every scripting and automation coordinate is expressed in the latter. At scale 2 the button's centre is at CSS (200, 70); (400, 140) is a different part of the page.",
+      "why_blind": "The image carries no units. A 1600-pixel-wide PNG of an 800-pixel-wide viewport and a 1600-pixel-wide PNG of a 1600-pixel-wide viewport are both simply wide images.",
+      "discriminating_check": "Compare the capture's pixel dimensions against the page's own report of its viewport: `window.innerWidth` and `window.devicePixelRatio`. Observed with Chrome 151 headless on one 800x600 window: at --force-device-scale-factor=1 the PNG was 800x600 with devicePixelRatio 1; at 2 it was 1600x1200 with devicePixelRatio 2; at 3 it was 2400x1800. The page reported an 800 CSS-pixel viewport in all three.",
+      "cost_of_missing": "Every coordinate derived from the image is wrong by a constant factor, and the clicks land on whatever occupies the scaled position. Because something usually does, the run continues and reports the steps it believed it took.",
+      "mitigation": "Take coordinates from the DOM via getBoundingClientRect, or divide image coordinates by the scale factor the capture was made at.",
+      "generalises_to": "Any measurement taken in one unit system and spent in another: viewport against document coordinates, physical against logical resolution, bytes against characters.",
+      "source": "https://www.w3.org/TR/cssom-view-1/#dom-window-devicepixelratio",
+      "provenance": "documented",
+      "title_short": "A screenshot's pixels are not the page's pixels"
+    },
+    {
+      "id": "NS-050",
+      "instrument": "screenshot",
+      "title": "A PDF capture renders the print stylesheet rather than the page under review",
+      "class": "rendered-in-a-different-media-type",
+      "false_reading": "The page was captured to PDF and the PDF is legible and complete. Conclusion drawn: this is what the page looks like.",
+      "true_state": "PDF generation switches the media type. Puppeteer states it directly: page.pdf() 'Generates a PDF of the page with the print CSS media type', and 'To generate a PDF with the screen media type, call page.emulateMediaType('screen') before calling page.pdf()'. Every @media print rule applies and every @media screen rule does not, so navigation, sticky headers and interactive affordances are commonly stripped by design.",
+      "why_blind": "A PDF and a screenshot are both pictures of a page, and neither records which media type produced it.",
+      "discriminating_check": "Extract the text the capture actually contains and compare it against the screen render. Observed with Chrome 151 headless on a page carrying visible text in a .screen-only element plus `@media print{.screen-only{display:none} body::after{content:'PRINT STYLES ACTIVE'}}`: --print-to-pdf produced a file whose only text-showing operators decoded to 'PRINT STYLES ACTIVE'. The words 'Screen layout' appear nowhere in it.",
+      "cost_of_missing": "A layout is signed off against an artifact no visitor will ever see, and print rules written long beforehand, often to remove exactly the elements being reviewed, silently define the record.",
+      "generalises_to": "Any render whose conditions are chosen by the renderer rather than the document: print media, forced colours, reduced motion, emulated devices.",
+      "source": "https://pptr.dev/api/puppeteer.page.pdf",
+      "provenance": "documented",
+      "title_short": "A PDF capture applies the print stylesheet"
+    },
+    {
+      "id": "NS-051",
+      "instrument": "screenshot",
+      "title": "A headless capture exercises one branch of a colour-scheme fork",
+      "class": "one-branch-of-a-preference-fork",
+      "false_reading": "The screenshot shows the page correctly styled and legible throughout. Conclusion drawn: the page renders correctly.",
+      "true_state": "prefers-color-scheme resolves to a single value per render, and a headless browser with no desktop session reports light. Every rule inside `@media (prefers-color-scheme: dark)` was parsed, matched nothing and contributed no pixels. The dark render, which a large share of visitors receive, was never produced at all.",
+      "why_blind": "A screenshot is one render under one set of resolved media features. The branch that did not match leaves no trace in the image, so 'the dark theme is correct' and 'the dark theme was never evaluated' look identical.",
+      "discriminating_check": "Ask the page which branch it is in, and capture both: `matchMedia('(prefers-color-scheme: dark)').matches`. Observed with Chrome 151 headless: the default run reported dark=false, light=true; the same page under --force-dark-mode reported dark=true, light=false. The page also reported prefers-reduced-motion and forced-colors as inactive by default, so those branches are unrendered for the same reason.",
+      "cost_of_missing": "Contrast failures, unreadable text and unstyled surfaces ship in the branch nobody rendered, and remain invisible to every subsequent screenshot taken the same way.",
+      "generalises_to": "Every conditional whose condition is supplied by the environment: feature flags defaulting off, locale-dependent formatting, reduced-motion and forced-colours branches.",
+      "source": "https://drafts.csswg.org/mediaqueries-5/#prefers-color-scheme",
+      "provenance": "documented",
+      "title_short": "Headless renders only the light colour scheme"
+    },
+    {
+      "id": "NS-052",
+      "instrument": "screenshot",
+      "title": "A capture taken at the load event shows the designed empty state",
+      "class": "empty-state-mistaken-for-empty-data",
+      "false_reading": "The screenshot shows a clean, well-styled page reading 'No results'. Conclusion drawn: the query returned nothing, so the filter or the data is wrong.",
+      "true_state": "The load event fires once the document and its declared subresources have loaded. It says nothing about fetches started by scripts. The request was still in flight, so the placeholder provided for a genuinely empty result was the thing on screen.",
+      "why_blind": "The empty state is a real, intentional, correctly styled view. A picture of 'no data yet' and a picture of 'no data at all' are the same picture, because the same markup produced both.",
+      "discriminating_check": "Count the data-bearing elements at capture time instead of judging the image: `document.querySelectorAll('#list li').length`. Observed against a local endpoint delayed by two seconds: the load-event capture reported rows=0 with the empty state visible, while a capture taken after the fetch resolved reported data-rows=2 and contained `<li>alpha` and `<li>beta`. The two PNGs differed in 1,262 pixels.",
+      "cost_of_missing": "Investigation moves to the query, the filter and the backend, none of which are broken. The moment the picture was taken is the one variable never questioned.",
+      "mitigation": "Trigger the capture on an assertion about content rather than on load; a network-idle condition is weaker but still better than the load event.",
+      "generalises_to": "Every designed representation of absence: empty tables, zero counts, blank dashboards, 'no alerts' panels.",
+      "source": "https://html.spec.whatwg.org/multipage/parsing.html#the-end",
+      "provenance": "documented",
+      "title_short": "The load event fires before fetched data arrives"
+    },
+    {
+      "id": "NS-053",
+      "instrument": "exit-code",
+      "title": "wait without arguments returns zero however its children exited",
+      "class": "collector-discards-child-status",
+      "false_reading": "A script starts several jobs with `&`, calls `wait`, and exits zero. Conclusion drawn: every job succeeded.",
+      "true_state": "The bash manual is explicit: 'If id is not given, wait waits for all running background jobs and the last-executed process substitution, if its process id is the same as $!, and the return status is zero.' The children's statuses are reaped and discarded. Any number of them may have failed.",
+      "why_blind": "An exit code reports what the last command chose to return, and bare wait returns zero by specification. The failing work happened in processes whose status was never requested.",
+      "discriminating_check": "Wait on each recorded PID and keep the statuses: `rc=0; for p in \"${pids[@]}\"; do wait \"$p\" || rc=$?; done; exit $rc`. Observed on bash 5.2.21 with one child exiting 3 and another exiting 7: bare `wait` returned 0, `wait $pid` on the second returned 7, and `wait -n` returned the status of the first job to finish.",
+      "cost_of_missing": "Parallelism converts a failing step into a silent one. A fan-out of uploads, migrations or builds reports success while an arbitrary subset of it did not happen.",
+      "generalises_to": "Every aggregator that reduces many statuses to one: parallel test runners, job schedulers, batch APIs, fan-out without per-item bookkeeping.",
+      "source": "https://www.gnu.org/software/bash/manual/bash.html#Job-Control-Builtins",
+      "provenance": "documented",
+      "title_short": "Bare wait returns zero whatever the children did"
+    },
+    {
+      "id": "NS-054",
+      "instrument": "exit-code",
+      "title": "Output redirection empties the file before the command reads it",
+      "class": "destination-truncated-before-the-source-is-read",
+      "false_reading": "`sort data.txt > data.txt` exits zero and data.txt is still there. Conclusion drawn: the file was sorted in place.",
+      "true_state": "The shell performs redirections before running the command, and for output redirection 'if the file does not exist it is created; if it does exist it is truncated to zero size'. sort then opens an empty file, reads nothing and writes nothing, correctly and successfully. The original contents are gone.",
+      "why_blind": "The exit code belongs to a command that did exactly what was asked of it with the input it was given. The destruction happened in the shell, before the command started, and produced no status of its own.",
+      "discriminating_check": "Compare the line count before and after in the same command. Observed on bash 5.2.21: a three-line data.txt held zero lines after `sort data.txt > data.txt`, with sort exiting 0; `grep -v DEBUG conf.txt > conf.txt` left conf.txt at zero bytes, with grep exiting 1 because it had nothing to match.",
+      "cost_of_missing": "The file that was supposed to be filtered is now empty, and emptiness is valid input to whatever reads it next: configuration becomes all-defaults, a dataset becomes zero records, and neither state raises an error.",
+      "mitigation": "Write to a new name and rename over the original, or use a tool with an explicit in-place mode such as `sed -i` or `sponge`.",
+      "generalises_to": "Every operation that opens its destination before reading its source: in-place archive rewrites, dumps piped over their own file, copies where source and destination alias.",
+      "source": "https://www.gnu.org/software/bash/manual/bash.html#Redirections",
+      "provenance": "documented",
+      "title_short": "Redirecting a command's output into its own input"
+    },
+    {
+      "id": "NS-055",
+      "instrument": "exit-code",
+      "title": "find exits zero regardless of what the command it ran returned",
+      "class": "status-excludes-the-delegated-command",
+      "false_reading": "`find . -name '*.json' -exec validate {} \\;` exits zero. Conclusion drawn: every file passed validation.",
+      "true_state": "find's exit status describes find's own traversal. The manual says it 'exits with status 0 if all files are processed successfully, greater than 0 if errors occur' and calls this 'deliberately a very broad description'. The status of each -exec child is not part of it. All of them may have failed.",
+      "why_blind": "One process walked the tree and a different process did the work. The status available to the caller belongs to the one that only walked.",
+      "discriminating_check": "Dispatch through a tool whose status covers the children: `find . -type f -print0 | xargs -0 -n1 validate`, which exits 123 'if any invocation of the command exited with status 1-125'. Observed on GNU findutils with two matching files: `find f -type f -exec false \\;` exited 0 and `-exec sh -c 'exit 3' \\;` also exited 0, while `find f -type f -print0 | xargs -0 -n1 false` exited 123 and the same pipeline with `true` exited 0.",
+      "cost_of_missing": "A validation, conversion or upload sweep reports success across an entire tree while every item in it failed, and a sweep is precisely the step nobody re-checks item by item.",
+      "generalises_to": "Every dispatcher whose status covers dispatch rather than outcome: cron wrappers, CI steps that shell out, message producers acknowledged on enqueue.",
+      "source": "https://man7.org/linux/man-pages/man1/find.1.html",
+      "provenance": "documented",
+      "title_short": "find's exit status ignores what -exec returned"
+    },
+    {
+      "id": "NS-056",
+      "instrument": "exit-code",
+      "title": "A source path without a trailing slash adds a directory level at the destination",
+      "class": "argument-resolved-to-a-sibling-path",
+      "false_reading": "`rsync -a build /var/www/site/` exits zero and the files are present under /var/www/site. Conclusion drawn: the build was deployed.",
+      "true_state": "rsync's manual: 'A trailing slash on the source changes this behavior to avoid creating an additional directory level at the destination.' Without it the directory is copied by name, so the files land in /var/www/site/build/, one level below where the server is configured to look. The previous build continues to be served.",
+      "why_blind": "The transfer succeeded and every file was copied correctly to a real path. The exit code describes the copy, not the destination's relationship to whatever reads it.",
+      "discriminating_check": "List the destination rather than trusting the status: `find /var/www/site -maxdepth 2 -name index.html`. Observed on rsync 3.2.7: `rsync -a rs/src rs/dest/` exited 0 and produced rs/dest/src/index.html, while `rsync -a rs/src/ rs/dest/` exited 0 and produced rs/dest/index.html.",
+      "cost_of_missing": "The deploy reports success and the site does not change. Re-running it reproduces the same success, so the natural response to the symptom confirms the wrong hypothesis.",
+      "generalises_to": "Every copy whose destination semantics depend on a trailing character or on whether the target already exists: cp, scp, docker COPY, object-storage prefixes.",
+      "source": "https://man7.org/linux/man-pages/man1/rsync.1.html",
+      "provenance": "documented",
+      "title_short": "rsync without a trailing slash nests the source"
+    },
+    {
+      "id": "NS-057",
+      "instrument": "http-response",
+      "title": "A response saved without decompression is stored as its compressed bytes",
+      "class": "body-stored-still-encoded",
+      "false_reading": "`curl -H 'Accept-Encoding: gzip' -o data.json URL` reports 200, exits zero, and data.json is the expected size. Conclusion drawn: the document was fetched.",
+      "true_state": "curl decompresses only when it negotiated the encoding itself. --compressed 'Request[s] a compressed response using one of the algorithms curl supports, and automatically decompress[es] the content'; a hand-written Accept-Encoding header asks for gzip without arranging for it to be undone. The file on disk begins 1f 8b and is a gzip member, not JSON.",
+      "why_blind": "Status, exit code and transferred byte count are identical to a successful plain fetch. %{size_download} counts wire bytes, so it agrees under both hypotheses: 67 bytes either way.",
+      "discriminating_check": "Ask what the file is rather than how big it is: `file -b data.json`. Observed on curl 8.5.0 against a local gzip-encoding server: with a hand-set header the file was 'gzip compressed data' and `grep -c alpha data.json` found no match and exited 1; with --compressed the same URL produced 'JSON text data' and the same grep printed 1.",
+      "cost_of_missing": "A search over the artifact returns nothing and the absence is read as a fact about the content. Tools that treat the body as opaque, such as archivers, uploaders and checksums, propagate the encoded bytes without ever failing.",
+      "mitigation": "curl's manual warns that saved response headers are not modified, so a stored header still claims the content is compressed after curl has decompressed it. The header is not a reliable record either way.",
+      "generalises_to": "Every transport-level transformation the receiver must undo: content-encoding, transfer-encoding, base64 envelopes, client-side decryption.",
+      "source": "https://curl.se/docs/manpage.html#--compressed",
+      "provenance": "documented",
+      "title_short": "A gzip body saved without being decompressed"
+    },
+    {
+      "id": "NS-058",
+      "instrument": "http-response",
+      "title": "A 200 carrying an Age header was answered by a cache, not by the origin",
+      "class": "answered-by-an-intermediary-cache",
+      "false_reading": "`curl -sI https://site/` returns 200 and a Date header. Conclusion drawn: the origin is serving this, now.",
+      "true_state": "RFC 9111: 'When a stored response is used to satisfy a request without validation, a cache MUST generate an Age header field, replacing any present in the response with a value equal to the stored response's current_age.' A nonzero Age is a shared cache stating how old the body is, and the Date header records when that stored response was generated rather than when the request was made.",
+      "why_blind": "A status code does not identify the responder. Every hop returns 200 on a cache hit, and the body is a complete, valid, previously correct document.",
+      "discriminating_check": "Read the caching headers alongside the status: `curl -sI URL | grep -iE '^(date|age|x-cache|cf-cache-status):'`. Observed at 20:07:28 UTC: https://vercel.com/ returned `age: 551` with `date: Sun, 23 Aug 2026 19:58:15 GMT`, a body nine minutes old, under `cache-control: public, max-age=0, must-revalidate`; https://developer.mozilla.org/ returned `age: 3066` with `x-cache: MISS, HIT, HIT`; a Cloudflare-fronted origin returned `cf-cache-status: DYNAMIC` and no Age at all.",
+      "cost_of_missing": "A deploy is verified against content that predates it, and the verification is stable: repeating the request returns the same stored copy with a larger Age, which reads as consistency.",
+      "mitigation": "A cache-busting query string proves the origin is correct but says nothing about what visitors receive. Both readings are needed, and they answer different questions.",
+      "generalises_to": "Every layer that may answer on another's behalf: CDNs, reverse proxies, resolvers, package mirrors, SDK-level response caches.",
+      "source": "https://www.rfc-editor.org/rfc/rfc9111#section-5.1",
+      "provenance": "documented",
+      "title_short": "A 200 carrying an Age header came from a cache"
+    },
+    {
+      "id": "NS-059",
+      "instrument": "http-response",
+      "title": "A request issued from the origin host does not travel the path visitors take",
+      "class": "bypassed-the-public-path",
+      "false_reading": "`curl -s -o /dev/null -w '%{http_code}' https://example.com/` run on the server returns 200. Conclusion drawn: the site is reachable and correct for visitors.",
+      "true_state": "The name resolved to an address that short-circuits the public path: an /etc/hosts entry, a split-horizon resolver, or the machine's own public address. The origin answered directly, and the CDN, WAF, redirect rules and edge certificate that every visitor traverses were not involved. A failure in any of them is unreachable by this request.",
+      "why_blind": "A status code records that something answered. Which of several layers answered is encoded nowhere in it, and a healthy origin behind a broken edge returns the same 200 as a healthy edge.",
+      "discriminating_check": "Record who answered, not just what: `curl -s -o /dev/null -w 'code=%{http_code} remote=%{remote_ip}\\n' URL`. Compare that address against the origin you deployed to. A proxied domain answers from the proxy's address whether or not the origin behind it is alive; an unproxied one answers from the origin itself. Only the second reading tells you the origin is serving.",
+      "cost_of_missing": "Edge misconfiguration, an expired certificate, a wrong origin rule or a route blocked by a WAF is confirmed working by a check structurally incapable of reaching it.",
+      "generalises_to": "Any probe issued from inside the system it measures: internal health checks, same-network monitoring, tests that resolve names through a private zone.",
+      "source": "https://curl.se/docs/manpage.html#-w",
+      "provenance": "documented",
+      "title_short": "A probe from the origin skips the public path"
+    },
+    {
+      "id": "NS-060",
+      "instrument": "file-on-disk",
+      "title": "git add says nothing when a pathspec matches only ignored files",
+      "class": "excluded-without-a-message",
+      "false_reading": "`git add .` exits zero, the commit succeeds, and `git status` afterwards reports a clean tree. Conclusion drawn: everything in the working directory is committed.",
+      "true_state": "git-add documents both branches: 'The git add command will not add ignored files by default. You can use the --force option to add ignored files. If you specify the exact filename of an ignored file, git add will fail with a list of ignored files. Otherwise it will silently ignore the file.' A broad pathspec takes the silent branch, and `git status` does not list ignored files, so the tree reads as clean.",
+      "why_blind": "Both instruments agree, and both are answering a narrower question than the one asked. `git status` compares the index against the tracked working tree; a file that is neither tracked nor reportable is outside that comparison by construction.",
+      "discriminating_check": "Ask whether a specific path is excluded, and list what was excluded: `git check-ignore -v path` and `git status --short --ignored`. Observed on git 2.43.0 with a .gitignore containing dist/, *.local and config/*: `git add .` exited 0, `git status --short` listed only .gitignore and app.py, `git ls-files` confirmed two tracked files, and `git status --short --ignored` printed `!! config/`, `!! dist/` and `!! settings.local` for the three that were never staged.",
+      "cost_of_missing": "A build output, a migration or a generated asset that a broad rule happens to match is absent from every clone and every deploy, and each step in the chain reports the tree as clean.",
+      "generalises_to": "Every filter applied before a report is produced: exclude rules in backups and syncs, packaging manifests, .dockerignore, test collection patterns.",
+      "source": "https://git-scm.com/docs/git-add",
+      "provenance": "documented",
+      "title_short": "git add silently skips ignored files"
+    },
+    {
+      "id": "NS-061",
+      "instrument": "file-on-disk",
+      "title": "Two readers of one CRLF file disagree about where each value ends",
+      "class": "readers-disagree-about-the-bytes",
+      "false_reading": "cat .env prints `API_URL=https://api.example.com` and that is the file the service loads. Conclusion drawn: the service has that URL.",
+      "true_state": "The file uses CRLF terminators. Python's default text mode translates them, so a Python reader sees a 23-character value; the shell does not translate, so `. ./.env` yields a 24-character value ending in a carriage return. The same bytes become different strings depending on who reads them.",
+      "why_blind": "Reading the file with cat, an editor or a code review renders the carriage return as nothing at all. It has no glyph, occupies no column, and is removed by several of the tools used to inspect it.",
+      "discriminating_check": "Make the terminators visible, or measure the value in the reader that matters: `cat -A .env`. Observed on this host: cat -A printed `API_URL=https://api.example.com^M$`, `file` reported 'ASCII text, with CRLF line terminators', bash reported ${#API_URL} as 24 and the equality test against the intended URL failed, while Python text mode reported 23 and the same file opened in binary mode yielded 'https://api.example.com\\r'.",
+      "cost_of_missing": "A hostname, token or path acquires an invisible trailing byte. Comparisons fail, signatures do not verify, and a request goes to a name that differs from the one on screen, while every review of the file keeps confirming the value is right.",
+      "mitigation": "Normalise on ingest with a gitattributes `text` rule, and compare lengths rather than appearances when a value refuses to match something it visibly equals.",
+      "generalises_to": "Every character that renders as nothing: byte-order marks, zero-width spaces, non-breaking spaces pasted from documents, trailing whitespace in secrets.",
+      "source": "https://git-scm.com/docs/gitattributes",
+      "provenance": "documented",
+      "title_short": "CRLF makes two readers see different values"
+    },
+    {
+      "id": "NS-062",
+      "instrument": "file-on-disk",
+      "title": "Copying a symlink in archive mode produces a second link, not a backup",
+      "class": "backup-and-original-are-one-object",
+      "false_reading": "`cp -a app.conf app.conf.bak` exits zero and a listing shows both names. Conclusion drawn: the original is preserved, so the edit is safe.",
+      "true_state": "Archive mode implies --no-dereference and --preserve=links: symbolic links are copied as symbolic links. app.conf was a link, so app.conf.bak is a second link to the same target. There is one file. Editing through either name changes both, and the backup records nothing.",
+      "why_blind": "Reading either path returns the intended contents, and a listing shows two entries with the expected names. Only the link marker and the inode number distinguish a backup from an alias.",
+      "discriminating_check": "Compare inodes after dereferencing: `stat -Lc '%i %n' app.conf app.conf.bak`. Observed on GNU coreutils: after `cp -a app.conf app.conf.bak` both names and the underlying real.conf reported inode 2142629, and overwriting app.conf with new content changed the contents visible through app.conf.bak at the same moment.",
+      "cost_of_missing": "The rollback path does not exist, and its absence is discovered only when it is needed. A policy requiring a backup before editing is satisfied on paper by an operation that made none.",
+      "mitigation": "`cp -L` copies the target's contents. Checking the inode immediately afterwards costs one command and is the only cheap moment to find this.",
+      "generalises_to": "Every duplication that may preserve a reference instead of the data: hard links, copy-on-write clones, container image layers, object-store copies that alias.",
+      "source": "https://www.gnu.org/software/coreutils/manual/html_node/cp-invocation.html",
+      "provenance": "documented",
+      "title_short": "cp -a copies the link, not the file behind it"
+    },
+    {
+      "id": "NS-063",
+      "instrument": "process-list",
+      "title": "free and ps report the host's memory, not the limit the process runs under",
+      "class": "limit-outside-the-tools-view",
+      "false_reading": "`free -h` inside the workload reports 7.8 GiB total and 4.1 GiB available. Conclusion drawn: memory is plentiful, so a slowdown or a death has some other cause.",
+      "true_state": "The limit is a cgroup property and /proc/meminfo is not scoped to it. memory.max is 'the main mechanism to limit memory usage of a cgroup. If a cgroup's memory usage reaches this limit and can't be reduced, the OOM killer is invoked in the cgroup.' The process may be reclaiming continuously against a ceiling two orders of magnitude below the figure free prints.",
+      "why_blind": "free, top and ps read /proc, which describes the machine. The constraint lives in /sys/fs/cgroup, which they do not consult.",
+      "discriminating_check": "Read the limit and the pressure counters for the process's own cgroup: `CG=$(awk -F: '{print $3}' /proc/self/cgroup); cat /sys/fs/cgroup$CG/memory.max /sys/fs/cgroup$CG/memory.events`. Observed on this host inside `systemd-run --user --scope -p MemoryMax=200M`: free -h still reported 7.8Gi total and 4.1Gi available, memory.max read 209715200, and a 400 MB allocation reported success while memory.events moved from `max 0` to `max 772`, recording 772 occasions on which the limit was hit and reclaim forced.",
+      "cost_of_missing": "Tuning is done against the wrong ceiling. A process being throttled or killed by a limit is diagnosed as slow code, and the counter that would have said so was never read.",
+      "generalises_to": "Every constraint enforced at a layer the inspection tool does not model: cgroup CPU quota against nproc, container disk quotas against df, API rate limits against local concurrency settings.",
+      "source": "https://docs.kernel.org/admin-guide/cgroup-v2.html",
+      "provenance": "documented",
+      "title_short": "free shows host memory, not the cgroup limit"
+    },
+    {
+      "id": "NS-064",
+      "instrument": "process-list",
+      "title": "Load average counts processes blocked on disk as though they were running",
+      "class": "blocked-counted-as-busy",
+      "false_reading": "Load average is 8.0 on a four-core machine. Conclusion drawn: the CPU is saturated, so the answer is fewer workers or more cores.",
+      "true_state": "proc_loadavg(5): the first three fields give 'the number of jobs in the run queue (state R) or waiting for disk I/O (state D)'. Uninterruptible sleep is counted the same as running. A load of 8 alongside an idle CPU means eight processes are blocked on storage or a stalled network filesystem, and adding cores changes nothing.",
+      "why_blind": "The load average is a single number covering two unlike conditions. Nothing in it separates work being done from work waiting to begin.",
+      "discriminating_check": "Count the states behind the number: `ps -eo state= | sort | uniq -c`. Observed on this host at load 2.14: 101 processes in S, 74 in I, 2 in R and none in D, so the load is runnable work rather than blocked I/O. Under an I/O stall the same command shows the D column carrying the figure.",
+      "cost_of_missing": "Capacity is added to a machine that is not short of capacity, the stall persists, and the real cause, a slow volume or a wedged mount, is never examined.",
+      "generalises_to": "Every aggregate that sums dissimilar states: queue depth mixing retries with new work, request counts mixing served with rejected, connection counts including half-open ones.",
+      "source": "https://man7.org/linux/man-pages/man5/proc_loadavg.5.html",
+      "provenance": "documented",
+      "title_short": "Load average counts I/O waits as running work"
+    },
+    {
+      "id": "NS-065",
+      "instrument": "process-list",
+      "title": "The %CPU column is a lifetime average, not a current rate",
+      "class": "average-presented-as-current",
+      "false_reading": "`ps aux` shows one process at 85.1% CPU. Conclusion drawn: this is the process consuming the machine now.",
+      "true_state": "ps(1) states it plainly: 'CPU usage is currently expressed as the percentage of time spent running during the entire lifetime of a process.' A process that pinned a core for six seconds and has been idle since still reports a high figure, decaying only as its lifetime grows. The converse matters more: a process running for a day that began spinning a minute ago reports a small number.",
+      "why_blind": "The column has the units of a rate and is read as one. Nothing in the output records the averaging window, which is each process's own age and therefore different in every row.",
+      "discriminating_check": "Measure the delta over a known interval: read fields 14 and 15 of /proc/PID/stat twice and divide the difference by CLK_TCK times the elapsed seconds. Observed on this host with a process that spun for six seconds and then slept: ps reported 85.1% immediately afterwards and 22.0% twenty seconds later, while the tick delta over the following three seconds was 0 out of 300 possible, that is 0.0% actual.",
+      "cost_of_missing": "The wrong process is restarted, throttled or blamed, and the one that has quietly started to spin is ranked below it because its long life dilutes its average.",
+      "mitigation": "top's %CPU is an interval rate rather than a lifetime average, and pidstat reports per-interval figures directly.",
+      "generalises_to": "Every statistic whose window is implicit: lifetime averages, cumulative counters presented as gauges, uptime-normalised error rates.",
+      "source": "https://man7.org/linux/man-pages/man1/ps.1.html",
+      "provenance": "documented",
+      "title_short": "ps %CPU averages over the whole process life"
+    },
+    {
+      "id": "NS-066",
+      "instrument": "log-output",
+      "title": "Redirection order decides whether the log can contain errors at all",
+      "class": "streams-split-by-redirection-order",
+      "false_reading": "The service runs as `app 2>&1 > app.log` and app.log holds a clean sequence of startup lines with no errors. Conclusion drawn: the run was clean.",
+      "true_state": "Redirections are processed left to right. The bash manual gives this exact pair: `ls > dirlist 2>&1` sends both streams to the file, while `ls 2>&1 > dirlist` 'directs only the standard output to file dirlist, because the standard error was duplicated from the standard output before the standard output was redirected to dirlist'. Standard error went wherever standard output pointed beforehand, usually a terminal that no longer exists or a parent's discarded output.",
+      "why_blind": "The log is genuine, complete and correctly ordered for the stream it captured. Nothing in it can indicate that a second stream existed and went elsewhere, so a log with no errors and a log that cannot contain errors are the same file.",
+      "discriminating_check": "Ask the running process where its descriptors point: `readlink /proc/$$/fd/1 /proc/$$/fd/2` from inside the redirected command. Observed on bash 5.2.21: under `./probe.sh 2>&1 > out1.log`, fd 1 pointed at out1.log while fd 2 pointed at the parent's output; under `./probe.sh > out2.log 2>&1` both pointed at out2.log. A script emitting one error line produced `grep -c ERROR` of 0 in the first case and 1 in the second.",
+      "cost_of_missing": "Every diagnostic the program emits is discarded by the same arrangement that produces the record used to declare it healthy, and alerting built on that log's contents can never fire.",
+      "generalises_to": "Any capture configured to watch one channel while the interesting events use another: stderr against stdout, structured logs against panics, application logs against the supervisor's.",
+      "source": "https://www.gnu.org/software/bash/manual/bash.html#Redirections",
+      "provenance": "documented",
+      "title_short": "2>&1 before > sends errors somewhere else"
+    },
+    {
+      "id": "NS-067",
+      "instrument": "log-output",
+      "title": "A service's stdout is recorded at info priority whatever the line says",
+      "class": "severity-assigned-by-the-transport",
+      "false_reading": "`journalctl -u app -p err` prints '-- No entries --'. Conclusion drawn: the service has logged no errors.",
+      "true_state": "systemd assigns the priority, not the text. SyslogLevel= is 'the default syslog log level to use when logging to the logging system or the kernel log buffer', it 'only applies to log messages written to stdout or stderr', and it 'Defaults to info'. Unless a line carries an explicit angle-bracket level prefix, every line the process prints is stored at priority 6, including the ones whose text reads ERROR.",
+      "why_blind": "The filter and the store agree. Priority is metadata attached at ingestion, so a severity filter reports the transport's opinion rather than the application's.",
+      "discriminating_check": "Look at the priority distribution instead of the filtered view: `journalctl -u UNIT -o json | jq -r .PRIORITY | sort | uniq -c`. Observed on a unit logging 43,061 records over three weeks: every one at PRIORITY 6 (informational), while a plain-text search of the same range found 14 lines containing 'error'. `journalctl -u UNIT -p err` reported '-- No entries --' throughout.",
+      "cost_of_missing": "Severity-based alerting and triage are silently disabled for every service that logs to stdout without prefixes, which is most of them, and the absence of high-priority records is read as the absence of high-priority events.",
+      "mitigation": "Emit the angle-bracket level prefix from the application, or set SyslogLevel= on the unit; SyslogLevelPrefix= controls whether such prefixes are honoured.",
+      "generalises_to": "Every field assigned by a collector rather than by the source: levels inferred by a log shipper, statuses rewritten by a proxy, timestamps stamped at ingestion.",
+      "source": "https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#SyslogLevel=",
+      "provenance": "documented",
+      "title_short": "Service stdout is journalled at info, not error"
+    },
+    {
+      "id": "NS-068",
+      "instrument": "log-output",
+      "title": "A journal with no persistent directory discards its evidence at reboot",
+      "class": "evidence-discarded-at-reboot",
+      "false_reading": "After a crash and a restart, `journalctl -u app --since '2 days ago'` returns nothing. Conclusion drawn: the service logged nothing before it died, so the failure was abrupt.",
+      "true_state": "journald's Storage= defaults to auto, and 'auto behaves like persistent if the /var/log/journal directory exists, and volatile otherwise (the existence of the directory controls the storage mode)'. Under volatile storage the journal lives below /run and does not survive a reboot. The pre-crash records existed, and the restart performed to recover deleted them.",
+      "why_blind": "An empty query result has one shape. 'Nothing was logged', 'nothing matched the filter' and 'the storage that held it no longer exists' all render as no output and a zero exit.",
+      "discriminating_check": "Establish whether history survives before drawing conclusions from its absence: `ls -d /var/log/journal 2>/dev/null; journalctl --list-boots`. Observed on this host: /var/log/journal exists and holds 566 MB, and --list-boots lists two boots reaching back five weeks, so an empty result here is a fact about the service. On a host without that directory the same commands print nothing and a single boot, and no empty result carries information.",
+      "cost_of_missing": "The post-mortem proceeds from the premise that the process died silently, and the reboot performed to restore service is the act that destroyed the evidence for any other explanation.",
+      "mitigation": "Create /var/log/journal and restart systemd-journald, or set Storage=persistent explicitly, before the next incident rather than after it.",
+      "generalises_to": "Every store whose retention is shorter than the investigation: ring buffers, in-memory metrics, container logs removed with the container, tmpfs working directories.",
+      "source": "https://www.freedesktop.org/software/systemd/man/latest/journald.conf.html#Storage=",
+      "provenance": "documented",
+      "title_short": "A volatile journal loses the logs at reboot"
+    },
+    {
+      "id": "NS-069",
+      "instrument": "log-output",
+      "title": "Traffic classified by user-agent counts what clients claim to be",
+      "class": "self-reported-identity",
+      "false_reading": "An access log shows 57% of requests from browsers. Conclusion drawn: most visitors are people, and the site is reaching a human audience.",
+      "true_state": "The User-Agent header is set by the client and asserted, never verified. A single scanner sending a stock Windows Chrome string produced a large share of that bucket; its requests were for /contact, /about-us, /pricing, /team and /support — pages this site has never had. Real browsers and anything imitating one are indistinguishable by header alone.",
+      "why_blind": "The field being counted is supplied by the party being measured. Every row is internally consistent and none of them is evidence.",
+      "discriminating_check": "Group requests by client address and compare what each one asked for against what exists. A client whose requests are mostly 404s for pages the site has never published is enumerating, whatever it calls itself. Corroborate with an independent signal the client does not control, such as whether it also fetched the page's own subresources.",
+      "cost_of_missing": "Audience is misread in the direction that flatters. Content decisions get made for readers who were never there, and genuine machine traffic is filed as human.",
+      "mitigation": "Treat the user-agent as one weak signal among several. Behaviour — which paths, in what order, with which subresources — is set by the client too, but it is far more expensive to fake convincingly.",
+      "generalises_to": "Any metric derived from a field the measured party supplies: referrers, self-reported versions, declared content types, client-side analytics events.",
+      "provenance": "observed",
+      "title_short": "User-agent counts claims, not clients"
     }
   ],
   "principles": [
@@ -854,7 +1179,8 @@
       "entries": [
         "NS-010",
         "NS-002",
-        "NS-004"
+        "NS-004",
+        "NS-052"
       ]
     },
     {
@@ -865,7 +1191,9 @@
         "NS-007",
         "NS-008",
         "NS-026",
-        "NS-038"
+        "NS-038",
+        "NS-058",
+        "NS-059"
       ]
     },
     {
@@ -875,7 +1203,10 @@
         "NS-005",
         "NS-015",
         "NS-016",
-        "NS-014"
+        "NS-014",
+        "NS-053",
+        "NS-055",
+        "NS-056"
       ]
     },
     {
@@ -914,7 +1245,9 @@
         "NS-019",
         "NS-025",
         "NS-042",
-        "NS-045"
+        "NS-045",
+        "NS-057",
+        "NS-058"
       ]
     },
     {
@@ -924,7 +1257,10 @@
         "NS-003",
         "NS-023",
         "NS-008",
-        "NS-046"
+        "NS-046",
+        "NS-060",
+        "NS-061",
+        "NS-062"
       ]
     },
     {
@@ -937,7 +1273,10 @@
         "NS-031",
         "NS-032",
         "NS-033",
-        "NS-034"
+        "NS-034",
+        "NS-066",
+        "NS-067",
+        "NS-068"
       ]
     },
     {
@@ -972,7 +1311,9 @@
       "entries": [
         "NS-006",
         "NS-004",
-        "NS-048"
+        "NS-048",
+        "NS-062",
+        "NS-056"
       ]
     },
     {
@@ -980,7 +1321,9 @@
       "note": "A substitution that still renders is invisible without a comparison.",
       "entries": [
         "NS-004",
-        "NS-024"
+        "NS-024",
+        "NS-049",
+        "NS-051"
       ]
     },
     {
@@ -1023,7 +1366,8 @@
       "symptom": "Log lines are in an impossible order",
       "note": "Two streams with different buffering do not interleave the way they were written.",
       "entries": [
-        "NS-035"
+        "NS-035",
+        "NS-066"
       ]
     },
     {
@@ -1037,7 +1381,58 @@
       "symptom": "A fresh clone is missing files that are present locally",
       "note": "Committed is not the same as tracked.",
       "entries": [
-        "NS-047"
+        "NS-047",
+        "NS-060"
+      ]
+    },
+    {
+      "symptom": "The screenshot does not match what I see in a browser",
+      "note": "A capture is taken under its own device scale, colour scheme and stylesheet, not yours.",
+      "entries": [
+        "NS-049",
+        "NS-050",
+        "NS-051",
+        "NS-052"
+      ]
+    },
+    {
+      "symptom": "A downloaded file is not the content I expected",
+      "note": "The transfer succeeded; the encoding or the destination path did not.",
+      "entries": [
+        "NS-057",
+        "NS-054",
+        "NS-056"
+      ]
+    },
+    {
+      "symptom": "The machine looks busy but nothing is progressing",
+      "note": "Load and CPU percentages measure different things than they appear to.",
+      "entries": [
+        "NS-064",
+        "NS-065",
+        "NS-063"
+      ]
+    },
+    {
+      "symptom": "A file I edited lost its contents",
+      "note": "The shell truncates a redirect target before the command reading it ever starts.",
+      "entries": [
+        "NS-054",
+        "NS-062"
+      ]
+    },
+    {
+      "symptom": "The process ran out of memory but the box has plenty",
+      "note": "A container sees the host's totals, not its own limit.",
+      "entries": [
+        "NS-063"
+      ]
+    },
+    {
+      "symptom": "My analytics and my server logs disagree",
+      "note": "One of them is counting what clients claim to be, and clients set that field themselves.",
+      "entries": [
+        "NS-069"
       ]
     }
   ]
