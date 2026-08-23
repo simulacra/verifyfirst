@@ -373,7 +373,7 @@ def build() -> None:
      <a href="/protocol/"><code>/protocol</code></a> — the short version, for a system prompt
   </p>"""
     (OUT / "index.html").write_text(shell(
-        "verifyfirst — what your verification method cannot see",
+        "What your verification method cannot see | verifyfirst",
         DATA["premise"][:180], home_body, f"{BASE}/",
         ld={"@context": "https://schema.org", "@type": "Dataset", "name": "verifyfirst",
             "description": DATA["premise"], "version": DATA["version"],
@@ -407,7 +407,7 @@ def build() -> None:
         d = OUT / i["id"]
         d.mkdir(exist_ok=True)
         (d / "index.html").write_text(shell(
-            f"{i['name']} — what it cannot see | verifyfirst",
+            f"What {i['short']} cannot see | verifyfirst",
             f"{i['used_when']} {i['blind_to'][0]}",
             body, f"{BASE}/{i['id']}/"), encoding="utf-8")
         (OUT / f"{i['id']}.txt").write_text(instrument_txt(i), encoding="utf-8")
@@ -422,7 +422,7 @@ def build() -> None:
     d = OUT / "registry"
     d.mkdir(exist_ok=True)
     (d / "index.html").write_text(shell(
-        "The registry — failures that report success | verifyfirst",
+        "Failures that report success | verifyfirst",
         DATA["method"][:180], reg_body, f"{BASE}/registry/"), encoding="utf-8")
 
     # --- protocol ------------------------------------------------------------
@@ -454,7 +454,7 @@ conclusion. Prefer resolved values over authored ones.</pre>
     d = OUT / "protocol"
     d.mkdir(exist_ok=True)
     (d / "index.html").write_text(shell(
-        "The protocol — a checklist for claiming work is done | verifyfirst",
+        "Verification protocol for AI agents | verifyfirst",
         "Name the instrument, say what it cannot see, run one check that could fail, "
         "report the observation not the inference.",
         pr_body, f"{BASE}/protocol/", narrow=True), encoding="utf-8")
@@ -499,7 +499,7 @@ claude mcp add verifyfirst -- python3 "$PWD/verifyfirst/mcp/server.py"</pre>
     d = OUT / "mcp"
     d.mkdir(exist_ok=True)
     (d / "index.html").write_text(shell(
-        "MCP server — query the registry from your tooling | verifyfirst",
+        "MCP server for agent verification | verifyfirst",
         "An MCP server exposing what each verification instrument is blind to. "
         "Python stdlib only, no dependencies.",
         mcp_body, f"{BASE}/mcp/", narrow=True), encoding="utf-8")

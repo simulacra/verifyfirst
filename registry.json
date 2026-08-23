@@ -19,7 +19,8 @@
         "Why an element is absent: never drawn, drawn transparent, drawn offscreen, or covered.",
         "Which typeface actually resolved, when the fallback is also a real font.",
         "Whether an asset arrived slowly or was requested late."
-      ]
+      ],
+      "short": "a screenshot"
     },
     {
       "id": "exit-code",
@@ -32,7 +33,8 @@
         "Partial completion, where early steps left convincing artifacts before a later step aborted.",
         "Which target was acted on, when the argument resolved differently than intended.",
         "Commands that never return at all, which produce no exit code to inspect."
-      ]
+      ],
+      "short": "an exit code"
     },
     {
       "id": "http-response",
@@ -44,7 +46,8 @@
         "Whether the body is correct, or even the right document.",
         "Staleness. A cached copy returns 200 forever.",
         "Redirects, so the URL that answered may not be the URL you asked for."
-      ]
+      ],
+      "short": "a 200 response"
     },
     {
       "id": "file-on-disk",
@@ -56,7 +59,8 @@
         "What overrode it later, in any last-writer-wins system.",
         "Whether the file is the one being served, as opposed to one with the same name elsewhere.",
         "Whether a plausible-looking artifact is the correct artifact."
-      ]
+      ],
+      "short": "a config file"
     },
     {
       "id": "process-list",
@@ -67,7 +71,8 @@
         "Whether the running process corresponds to the code currently on disk.",
         "Your own command, which matches the pattern you are searching for.",
         "Whether the environment you are inspecting is the one you are running inside."
-      ]
+      ],
+      "short": "ps and systemctl"
     },
     {
       "id": "log-output",
@@ -78,7 +83,8 @@
         "Silent branches, which by construction produce no line to read.",
         "Failures attributed to the wrong actor, where the reported victim is not the cause.",
         "Anything killed before it could flush a buffer."
-      ]
+      ],
+      "short": "logs and stdout"
     }
   ],
   "entries": [

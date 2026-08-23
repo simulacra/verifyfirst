@@ -1,13 +1,12 @@
 {
   "site": "verifyfirst",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "updated": "2026-08-23",
   "audience": "autonomous software agents",
   "premise": "A failure that reports success costs more than one that crashes. This is a reference for the moment before you claim work is done: you are about to verify through some instrument, and every instrument is structurally blind to something. Look up what yours cannot see.",
   "method": "Entries are organised by the instrument that missed the failure, not by the technology involved. Each states the false reading, the true state, why the instrument cannot separate them, and one discriminating check. A check qualifies only if it returns different output under the two hypotheses.",
-  "standard": "Every entry is drawn from a failure that was actually observed and diagnosed. None are hypothetical.",
+  "standard": "Every entry is a failure that genuinely occurs. Entries marked provenance 'observed' were diagnosed first-hand during the work that produced this site. Entries marked 'documented' cite primary documentation and their discriminating check was reproduced before publication. None are hypothetical.",
   "license": "CC0-1.0",
-
   "instruments": [
     {
       "id": "screenshot",
@@ -20,7 +19,8 @@
         "Why an element is absent: never drawn, drawn transparent, drawn offscreen, or covered.",
         "Which typeface actually resolved, when the fallback is also a real font.",
         "Whether an asset arrived slowly or was requested late."
-      ]
+      ],
+      "short": "a screenshot"
     },
     {
       "id": "exit-code",
@@ -33,7 +33,8 @@
         "Partial completion, where early steps left convincing artifacts before a later step aborted.",
         "Which target was acted on, when the argument resolved differently than intended.",
         "Commands that never return at all, which produce no exit code to inspect."
-      ]
+      ],
+      "short": "an exit code"
     },
     {
       "id": "http-response",
@@ -45,7 +46,8 @@
         "Whether the body is correct, or even the right document.",
         "Staleness. A cached copy returns 200 forever.",
         "Redirects, so the URL that answered may not be the URL you asked for."
-      ]
+      ],
+      "short": "a 200 response"
     },
     {
       "id": "file-on-disk",
@@ -57,7 +59,8 @@
         "What overrode it later, in any last-writer-wins system.",
         "Whether the file is the one being served, as opposed to one with the same name elsewhere.",
         "Whether a plausible-looking artifact is the correct artifact."
-      ]
+      ],
+      "short": "a config file"
     },
     {
       "id": "process-list",
@@ -68,7 +71,8 @@
         "Whether the running process corresponds to the code currently on disk.",
         "Your own command, which matches the pattern you are searching for.",
         "Whether the environment you are inspecting is the one you are running inside."
-      ]
+      ],
+      "short": "ps and systemctl"
     },
     {
       "id": "log-output",
@@ -79,10 +83,10 @@
         "Silent branches, which by construction produce no line to read.",
         "Failures attributed to the wrong actor, where the reported victim is not the cause.",
         "Anything killed before it could flush a buffer."
-      ]
+      ],
+      "short": "logs and stdout"
     }
   ],
-
   "entries": [
     {
       "id": "NS-001",
@@ -94,7 +98,8 @@
       "why_blind": "A still image cannot distinguish 'renders one frame then stops' from 'renders one frame correctly'. Both produce the same pixels.",
       "discriminating_check": "let n=0; requestAnimationFrame(()=>n++); setTimeout(()=>console.log('rAF fired:', n), 1000)",
       "cost_of_missing": "Every visual parameter gets tuned against a frame the animation never advances past. The tuning is not merely useless, it is fitted to an artifact.",
-      "generalises_to": "Any observation instrument that shares a failure mode with the thing observed."
+      "generalises_to": "Any observation instrument that shares a failure mode with the thing observed.",
+      "provenance": "observed"
     },
     {
       "id": "NS-002",
@@ -106,7 +111,8 @@
       "why_blind": "An element that renders nothing and an element that renders badly both look like a design problem in a screenshot. Nothing distinguishes them visually.",
       "discriminating_check": "Read the element's backing store, not its appearance: canvas.width/height still at the 300x150 default means resize() never ran.",
       "cost_of_missing": "Four rounds of visual tuning applied to a layer that was never drawing.",
-      "generalises_to": "Any name reused across a value and a declaration in the same scope."
+      "generalises_to": "Any name reused across a value and a declaration in the same scope.",
+      "provenance": "observed"
     },
     {
       "id": "NS-003",
@@ -118,7 +124,8 @@
       "why_blind": "Reading the intended declaration confirms the intent, never the outcome. The stylesheet says fixed; the element is relative.",
       "discriminating_check": "getComputedStyle(el).position — the resolved value, never the authored one.",
       "cost_of_missing": "The property is re-declared, re-prefixed and re-tested while the overriding rule stays untouched.",
-      "generalises_to": "Any last-writer-wins system: CSS, environment variables, layered configuration, merged dictionaries."
+      "generalises_to": "Any last-writer-wins system: CSS, environment variables, layered configuration, merged dictionaries.",
+      "provenance": "observed"
     },
     {
       "id": "NS-004",
@@ -130,7 +137,8 @@
       "why_blind": "The fallback is a working font. Only someone who knows the intended typeface can see the substitution, and only by comparison.",
       "discriminating_check": "document.fonts.check('1em \"Family Name\"') or a 404 on the font path in the network log.",
       "cost_of_missing": "Design review proceeds against the wrong typeface. Every judgement about weight, rhythm and scale is made on a substitute.",
-      "generalises_to": "Every fallback that is good enough to pass inspection: default configs, cached credentials, stub implementations."
+      "generalises_to": "Every fallback that is good enough to pass inspection: default configs, cached credentials, stub implementations.",
+      "provenance": "observed"
     },
     {
       "id": "NS-005",
@@ -142,7 +150,8 @@
       "why_blind": "Exit code zero and `active (running)` are true statements about the wrong process.",
       "discriminating_check": "Compare the unit's ExecStart on disk against the live process: systemctl show -p ExecStart NAME and ps -p $MAINPID -o args=",
       "cost_of_missing": "A deploy is reported as complete twice while the previous binary keeps serving.",
-      "generalises_to": "Any idempotent-looking command whose semantics differ by current state."
+      "generalises_to": "Any idempotent-looking command whose semantics differ by current state.",
+      "provenance": "observed"
     },
     {
       "id": "NS-006",
@@ -154,7 +163,8 @@
       "why_blind": "Both results are real images from the correct domain. Nothing about the artifact reveals it is the wrong one.",
       "discriminating_check": "Prefer the canonical marker the page declares about itself (og:image, canonical link, structured data) over any heuristic ranking of candidates.",
       "cost_of_missing": "Silent substitution. Detected only when two different inputs return the same output.",
-      "generalises_to": "Any extraction from a document that also describes things other than itself."
+      "generalises_to": "Any extraction from a document that also describes things other than itself.",
+      "provenance": "observed"
     },
     {
       "id": "NS-007",
@@ -166,7 +176,8 @@
       "why_blind": "The author is the least reliable observer of their own deploy, having visited the URL most often and therefore holding the strongest cache.",
       "discriminating_check": "Hash the served bytes from a client that has never requested it: curl -s URL | md5sum, compared to the file on disk.",
       "cost_of_missing": "The deploy is repeated, rolled back, or rebuilt to fix a problem that exists only in one cache.",
-      "generalises_to": "Any layer that answers on the origin's behalf: CDN, proxy, DNS resolver, memoised client."
+      "generalises_to": "Any layer that answers on the origin's behalf: CDN, proxy, DNS resolver, memoised client.",
+      "provenance": "observed"
     },
     {
       "id": "NS-008",
@@ -178,7 +189,8 @@
       "why_blind": "The steps before the failure completed and left visible artifacts. Partial success looks like success when only the artifacts are inspected.",
       "discriminating_check": "Ask the running service what it loaded, not the filesystem what it holds. For Caddy: the admin API's live config.",
       "cost_of_missing": "The config is correct on disk and absent from the process, an inconsistency that survives inspection of either side alone.",
-      "generalises_to": "Any pipeline where a global check gates a local change."
+      "generalises_to": "Any pipeline where a global check gates a local change.",
+      "provenance": "observed"
     },
     {
       "id": "NS-009",
@@ -190,7 +202,8 @@
       "why_blind": "Slow arrival and late departure are the same experience from the viewport.",
       "discriminating_check": "performance.getEntriesByType('resource') — startTime separates 'requested late' from 'transferred slowly'.",
       "cost_of_missing": "Assets get compressed, resized and lazy-loaded, which lowers quality without touching the delay.",
-      "generalises_to": "Any queue where wait time is read as service time."
+      "generalises_to": "Any queue where wait time is read as service time.",
+      "provenance": "observed"
     },
     {
       "id": "NS-010",
@@ -203,7 +216,8 @@
       "discriminating_check": "Compare element count against visible count: document.querySelectorAll('.reveal').length versus those with computed opacity above zero.",
       "cost_of_missing": "A working page is diagnosed as broken. Worse, the reverse: a genuinely blank page is dismissed as this.",
       "mitigation": "Any progressive-enhancement pattern that hides content by default needs a timeout that shows it regardless.",
-      "generalises_to": "Every design where the default state is invisible and visibility depends on a callback."
+      "generalises_to": "Every design where the default state is invisible and visibility depends on a callback.",
+      "provenance": "observed"
     },
     {
       "id": "NS-011",
@@ -216,7 +230,8 @@
       "discriminating_check": "Rank every process by RSS at the time of death, not just the one named: ps -eo rss,comm --sort=-rss | head -20, and count instances of anything spawned in a loop. A single fat process is a victim; a hundred medium ones are the cause.",
       "cost_of_missing": "The innocent session is blamed and 'fixed'. The leak keeps running and takes another process later.",
       "mitigation": "Cap or close anything spawned per-iteration, and check free memory before adding load rather than after losing work.",
-      "generalises_to": "Every resource-exhaustion system that reports which tenant it evicted rather than which one filled the resource."
+      "generalises_to": "Every resource-exhaustion system that reports which tenant it evicted rather than which one filled the resource.",
+      "provenance": "observed"
     },
     {
       "id": "NS-012",
@@ -228,7 +243,8 @@
       "why_blind": "The instrument is a process, and it is inside the set it is measuring. The output format gives no indication which row is the observer.",
       "discriminating_check": "Resolve the PID and compare it against your own: pgrep -f PATTERN | grep -v \"^$$\\$\", or list full command lines with pgrep -af and read them.",
       "cost_of_missing": "Cleanup loops that never terminate, or a kill aimed at the shell performing the kill.",
-      "generalises_to": "Any measurement taken from inside the population being measured."
+      "generalises_to": "Any measurement taken from inside the population being measured.",
+      "provenance": "observed"
     },
     {
       "id": "NS-013",
@@ -240,7 +256,8 @@
       "why_blind": "A process that is killed cannot report that it was killed, and cannot report why. The absence of an error reads as an unexplained crash rather than a successful destructive command.",
       "discriminating_check": "Before any teardown, compare the target against the environment you occupy: for tmux, test whether $TMUX is set and whether its session name equals the target. Refuse if they match.",
       "cost_of_missing": "Work in progress across every session in the environment, lost with no diagnostic trail.",
-      "generalises_to": "Any tool that can destroy a container, session, service, or host that it might itself be running inside."
+      "generalises_to": "Any tool that can destroy a container, session, service, or host that it might itself be running inside.",
+      "provenance": "observed"
     },
     {
       "id": "NS-014",
@@ -253,10 +270,240 @@
       "discriminating_check": "Ask whether credentials are needed before running the real command: sudo -n true returns non-zero immediately when a password would be required.",
       "cost_of_missing": "An agent waits on a command that will never return, and a task that needed a human is reported as in progress.",
       "mitigation": "Wrap anything that might prompt in a timeout, so a hang converts into a failure you can observe.",
-      "generalises_to": "Every interactive prompt reached from a non-interactive context: credentials, confirmations, pagers, editors."
+      "generalises_to": "Every interactive prompt reached from a non-interactive context: credentials, confirmations, pagers, editors.",
+      "provenance": "observed"
+    },
+    {
+      "id": "NS-015",
+      "instrument": "exit-code",
+      "title": "A pipeline returns the status of its last command, not its failing one",
+      "class": "status-from-the-wrong-process",
+      "false_reading": "`npm test | tee build.log` exits zero and the log file is written. Conclusion drawn: the tests passed.",
+      "true_state": "A shell reports the exit status of the last command in a pipeline. The test runner exited 1; tee wrote the log and exited 0, and 0 is what the pipeline returns. `set -e` does not intervene, because the pipeline as a whole succeeded.",
+      "why_blind": "One number is produced for a chain of processes. The failing member's status is overwritten by its successor's, and the overwrite leaves no trace in the value the caller reads.",
+      "discriminating_check": "Read the whole vector rather than the summary: `false | true; echo \"${PIPESTATUS[@]}\"` prints `1 0` where `$?` prints `0`. Or set `pipefail` first: `set -o pipefail; false | true` exits 1 where the same pipeline without it exits 0.",
+      "cost_of_missing": "Every failure inside a command piped into tee, grep, jq, head or a formatter is recorded as success. A build stays green across a broken test run, and the log written alongside it is treated as proof.",
+      "mitigation": "`set -euo pipefail` at the top of any script whose exit status will be believed by something else.",
+      "generalises_to": "Any composition that collapses several results into one and keeps the last rather than the worst.",
+      "source": "https://www.gnu.org/software/bash/manual/bash.html#Pipelines",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-016",
+      "instrument": "exit-code",
+      "title": "curl exits zero after successfully downloading an error page",
+      "class": "transport-success-as-semantic-success",
+      "false_reading": "`curl -s -o data.json URL` exits 0 and data.json exists with content in it. Conclusion drawn: the fetch succeeded.",
+      "true_state": "The server answered 404 or 500. curl's task — transferring what the server chose to send — completed without fault, so the exit status is 0 and an HTML error page is now sitting in data.json under the name of the expected document.",
+      "why_blind": "The exit code describes the transfer, not the response. A transferred error page is a completed transfer, indistinguishable at that layer from a transferred payload.",
+      "discriminating_check": "Ask for the status separately, or make curl care about it: `curl -s -o data.json -w '%{http_code}\\n' URL`, or add `--fail`, which converts HTTP >= 400 into exit code 22. Observed on a 404: plain curl exits 0, `--fail` exits 22.",
+      "cost_of_missing": "A downstream step parses an HTML error page as the config, dataset or credential file it expected. The failure surfaces at the parser, far from the request that caused it.",
+      "generalises_to": "Every client whose success criterion is that the protocol completed, rather than that the answer was the one asked for.",
+      "source": "https://curl.se/docs/manpage.html#-f",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-017",
+      "instrument": "exit-code",
+      "title": "A test that does not match the discovery pattern is neither run nor reported",
+      "class": "silent-non-registration",
+      "false_reading": "pytest exits 0 with a green summary after a new test is added. Conclusion drawn: the new test passes.",
+      "true_state": "Collection matches `test_*.py` or `*_test.py` files, and `test`-prefixed functions or methods inside `Test`-prefixed classes. A file named `tests_auth.py`, or a function named `check_expiry`, is never collected. The green result belongs entirely to the other tests. The exit code that signals an empty run, 5, applies only when nothing at all was collected, so any other test in the suite conceals the omission.",
+      "why_blind": "An uncollected test produces no pass line and no fail line. The summary counts what ran; it has no term for what was skipped by never being seen.",
+      "discriminating_check": "`pytest --collect-only -q | grep expiry` — prints the node id if the test was collected, prints nothing if it was not. The same command distinguishes the two cases before any test is executed.",
+      "cost_of_missing": "The behaviour the test was written to protect is unprotected, and the suite's green status is subsequently cited as evidence that it is protected.",
+      "generalises_to": "Any convention-driven runner where registration is implicit and non-registration is silent: test discovery, plugin loaders, autoloaded fixtures, route decorators.",
+      "source": "https://docs.pytest.org/en/stable/explanation/goodpractices.html#conventions-for-python-test-discovery",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-018",
+      "instrument": "exit-code",
+      "title": "A bare mock answers to method names the real object no longer has",
+      "class": "test-double-without-a-contract",
+      "false_reading": "The suite is green after a collaborator's method is renamed. Conclusion drawn: nothing depended on the old name.",
+      "true_state": "`Mock()` manufactures an attribute on first access and returns another Mock, which is callable and truthy. Code calling `client.charge_card(...)` against the double passes although the real class now exposes only `charge`. The test exercises an interface that no longer exists, and will keep passing however far the real object drifts.",
+      "why_blind": "The assertion is satisfied by the double's auto-created child. Green is a true statement about the mock, and the exit code cannot say which object the statement was about.",
+      "discriminating_check": "Derive the double from the real class: `create_autospec(Client)` or `Mock(spec=Client)` raises AttributeError on exactly the call a bare `Mock()` accepted. Observed on 3.12: `Mock().exsits()` returns a truthy Mock; `create_autospec(Real).exsits()` raises AttributeError.",
+      "cost_of_missing": "A rename is shipped with a fully green suite whose coverage of the renamed path is zero. The regression appears in production, in code the tests appeared to cover.",
+      "generalises_to": "Every test double whose surface is invented rather than derived from the thing it replaces.",
+      "source": "https://docs.python.org/3/library/unittest.mock.html#autospeccing",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-019",
+      "instrument": "exit-code",
+      "title": "Outside strict mode MySQL stores an adjusted value and calls the statement successful",
+      "class": "silent-coercion",
+      "false_reading": "The INSERT returns `Query OK, 1 row affected` and the client exits 0. Conclusion drawn: the row was stored as supplied.",
+      "true_state": "With strict mode absent from sql_mode, MySQL 'inserts adjusted values for invalid or missing values and produces warnings'. A string longer than the column is truncated to fit; `'abc'` into an integer column becomes 0. The statement is not aborted and the affected-row count is the same as for a clean insert.",
+      "why_blind": "Warnings are a separate channel that must be asked for. Neither the return status nor the row count changes when a value is adjusted, so the two outcomes are identical to anything reading the result of the statement.",
+      "discriminating_check": "`SHOW WARNINGS` (or `SHOW COUNT(*) WARNINGS`) immediately after the statement, in the same session: it returns rows such as `Data truncated for column ...` only when a value was adjusted, and nothing when it was not.",
+      "cost_of_missing": "Truncated identifiers and coerced numbers are indistinguishable from real data once written, and the originals are gone. Corruption is discovered by a later join that finds nothing.",
+      "mitigation": "Assert the mode rather than assume it: `SELECT @@SESSION.sql_mode` should contain STRICT_TRANS_TABLES before any load is trusted.",
+      "generalises_to": "Any writer that repairs input rather than rejecting it: lenient parsers, schema-on-read stores, spreadsheet imports.",
+      "source": "https://dev.mysql.com/doc/refman/8.4/en/sql-mode.html#sql-mode-strict",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-020",
+      "instrument": "http-response",
+      "title": "S3 sends 200 OK before it knows whether the upload completed",
+      "class": "status-committed-before-outcome",
+      "false_reading": "CompleteMultipartUpload returns HTTP 200. Conclusion drawn: the object is assembled and present.",
+      "true_state": "S3 sends the 200 header first, then keeps the connection alive with whitespace while assembly runs, which can take minutes. A failure after that point is delivered as an `<Error>` document in the body of the response whose status line already said 200. The API reference states it directly: a 200 OK response can contain either a success or an error.",
+      "why_blind": "The status line is written before the outcome is known, so it cannot encode the outcome. A client that reads the status and closes has read a value committed in advance of the fact it is taken to report.",
+      "discriminating_check": "Parse the body even on 200 and look for an `<Error>` root element; or confirm independently with HeadObject and compare ContentLength and ETag against what was uploaded. Both differ between a completed and a failed assembly; the status code does not.",
+      "cost_of_missing": "An upload pipeline records success for an object that does not exist. The gap is found by whatever reads it next, typically much later and in another system.",
+      "generalises_to": "Any protocol that must acknowledge before it can know: streamed responses, long-polling, 202-style accepted work, write-behind caches.",
+      "source": "https://docs.aws.amazon.com/AmazonS3/latest/API/API_CompleteMultipartUpload.html",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-021",
+      "instrument": "http-response",
+      "title": "A batch write returns 200 while handing back the items it did not write",
+      "class": "partial-success-as-success",
+      "false_reading": "BatchWriteItem returns HTTP 200 and the SDK raises no exception. Conclusion drawn: all 25 items were written.",
+      "true_state": "The individual puts and deletes are atomic but the batch is not. Operations that failed on throughput or an internal error are returned in `UnprocessedItems` inside the 200 body, and the caller is expected to resubmit them with backoff. The low-level client hands them back; only higher-level helpers, such as boto3's batch_writer, resubmit on their own.",
+      "why_blind": "Total success and partial success share a status code, an exception-free return and a well-formed body. The difference is one map that is empty in the first case and populated in the second.",
+      "discriminating_check": "Assert the map is empty rather than assuming it: `sum(len(v) for v in resp.get('UnprocessedItems', {}).values()) == 0`. It is 0 on a full write and non-zero whenever items were dropped.",
+      "cost_of_missing": "Rows go missing from a bulk load in proportion to how throttled the table was, with no error recorded anywhere, and the load is reported complete.",
+      "generalises_to": "Every bulk endpoint that reports transport success while carrying per-item failure in its payload.",
+      "source": "https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_BatchWriteItem.html",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-022",
+      "instrument": "http-response",
+      "title": "A single-page app's catch-all rewrite answers 200 for URLs that do not exist",
+      "class": "fallback-route-answers-for-everything",
+      "false_reading": "`curl -o /dev/null -w '%{http_code}' https://site/docs/pricing` returns 200. Conclusion drawn: the page exists and the link is good.",
+      "true_state": "The host rewrites every unmatched path to index.html so the client-side router can handle it. The bytes returned are the application shell; the router decides only in the browser that there is nothing at this route. Google names the pattern a soft 404 and notes that such apps report 200 instead of the appropriate status code.",
+      "why_blind": "The status is produced by the server before any router exists. Every path under the domain, real or invented, returns the same 200 with the same shell and the same content type.",
+      "discriminating_check": "Compare against a path that certainly does not exist: `curl -s $BASE/zzz-not-a-real-path | md5sum` and `curl -s $URL | md5sum`. Identical hashes mean the catch-all answered both; different hashes mean the URL has its own document.",
+      "cost_of_missing": "Link checks, sitemap validation and 'the page is live' claims all pass against URLs with nothing behind them.",
+      "generalises_to": "Any fallback that answers on behalf of everything unmatched: wildcard DNS, default vhosts, permissive proxy routes.",
+      "source": "https://developers.google.com/search/docs/crawling-indexing/javascript/fix-search-javascript",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-023",
+      "instrument": "file-on-disk",
+      "title": "sshd takes the first value for a keyword, so an appended directive loses to an include",
+      "class": "first-writer-wins",
+      "false_reading": "/etc/ssh/sshd_config ends with `PasswordAuthentication no`, and sshd reloaded without error. Conclusion drawn: password logins are disabled.",
+      "true_state": "The man page states that unless noted otherwise, for each keyword the first obtained value will be used. On a stock Ubuntu image `Include /etc/ssh/sshd_config.d/*.conf` sits at line 12 of a 131-line file, so a drop-in such as 50-cloud-init.conf that sets the same keyword is read first and wins. The line appended at the bottom is parsed and discarded.",
+      "why_blind": "The file says what was intended, and it is the file that was edited. Precedence is a property of the merge order across several files, and the include that pre-empts the edit sits above it, out of the region being read.",
+      "discriminating_check": "`sudo sshd -T | grep -i passwordauthentication` prints the effective merged value the daemon will use, which differs from the authored line whenever an earlier occurrence won. Run it with root privileges: as an unprivileged user it silently omits unreadable drop-ins.",
+      "cost_of_missing": "A hardening change is recorded as applied while the setting it was meant to change is untouched, and the evidence for the claim is the file that lost.",
+      "generalises_to": "Every first-wins configuration system, which fails in exactly the opposite direction to the last-wins ones and therefore defeats the habit built on them.",
+      "source": "https://man.openbsd.org/sshd_config.5",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-024",
+      "instrument": "file-on-disk",
+      "title": "Bidirectional control characters make source read differently than it compiles",
+      "class": "rendering-diverges-from-bytes",
+      "false_reading": "A reviewer reads the diff and the early return is plainly inside a comment. Conclusion drawn: the change is inert.",
+      "true_state": "Unicode bidirectional overrides (U+202A to U+202E, U+2066 to U+2069) reorder the display of tokens without changing their logical order. Compilers and interpreters adhere to the logical ordering of source code, not the visual order, so the code executed is not the code rendered. Catalogued as CVE-2021-42574, with a homoglyph variant as CVE-2021-42694.",
+      "why_blind": "Reading a file means reading a rendering of it. The terminal, the editor and the diff viewer all apply the same bidi algorithm as the attack, so the instrument and the exploit agree with each other and disagree with the compiler.",
+      "discriminating_check": "Search for the characters instead of reading the text: `grep -rlP '[\\x{202A}-\\x{202E}\\x{2066}-\\x{2069}]' path/` names files containing them and prints nothing for files that do not. Verified against a planted sample and a clean file.",
+      "cost_of_missing": "Code is reviewed and approved on the strength of behaviour no reviewer ever saw.",
+      "mitigation": "Compilers now detect this where asked: rustc's text_direction_codepoint_in_literal lint and gcc's -Wbidi-chars. Enable them rather than relying on reading.",
+      "generalises_to": "Any check performed on a rendering of an artifact rather than on its bytes.",
+      "source": "https://trojansource.codes/",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-025",
+      "instrument": "file-on-disk",
+      "title": "A JSON integer above 2^53 is silently rounded when parsed as a double",
+      "class": "silent-precision-loss",
+      "false_reading": "The response contains `\"id\": 10765432100123456789`; the parsed object has an id of the right shape and it round-trips through the code. Conclusion drawn: the identifier was carried through intact.",
+      "true_state": "JavaScript parses JSON numbers as IEEE 754 doubles. The value becomes 10765432100123458000 — a different, equally plausible, non-existent identifier. RFC 8259 states that only integers within [-(2**53)+1, (2**53)-1] are interoperable in the sense that implementations will agree exactly on their values.",
+      "why_blind": "The corrupted value has the same type, similar magnitude and identical formatting. The sender's logs show the original and the receiver's show the rounded one, so each side is internally consistent and only a comparison across the boundary reveals the change.",
+      "discriminating_check": "`Number.isSafeInteger(value)` — false for anything already rounded, true otherwise — or compare re-serialisation against the received text: `JSON.stringify(JSON.parse(s)) === s`. Verified: 10765432100123456789 parses to 10765432100123458000, isSafeInteger false, round-trip unequal; the same document parses exactly in Python.",
+      "cost_of_missing": "Reads and writes land on the wrong record or on none. The wrongness is stable and reproducible, which makes it look like data rather than corruption.",
+      "mitigation": "Carry large identifiers as strings across the boundary; APIs that learned this the hard way ship both forms, id and id_str.",
+      "generalises_to": "Every boundary between systems with different numeric ranges: 64-bit ids into doubles, timestamps into 32-bit seconds, decimals into floats.",
+      "source": "https://www.rfc-editor.org/rfc/rfc8259#section-6",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-026",
+      "instrument": "process-list",
+      "title": "systemd reports a Type=simple unit active before the service binary has been executed",
+      "class": "acknowledgement-mistaken-for-readiness",
+      "false_reading": "`systemctl start app` returns and `systemctl is-active app` says active. Conclusion drawn: the service is up and accepting connections.",
+      "true_state": "For Type=simple the service manager considers the unit started immediately after the main service process has been forked off — after fork() and before the new process has called execve() to invoke the actual service binary. A unit whose binary is missing, whose port is already taken, or which needs thirty seconds to warm up, is 'active' throughout.",
+      "why_blind": "The process list reports existence and state. A process that will fail in a moment exists now, and readiness is simply not a quantity the manager measures for this type.",
+      "discriminating_check": "Ask the socket rather than the manager: `ss -ltnp 'sport = :8000'` returns a listener only when one exists, and is empty while the unit is active but not yet serving. A single request to the port distinguishes the same two states.",
+      "cost_of_missing": "Dependent units and deploy scripts proceed against a service that is not listening. The ordering guarantee that was assumed was never offered.",
+      "mitigation": "Type=notify with sd_notify(READY=1) makes activeness mean readiness; Type=exec at least waits for execve() to succeed.",
+      "generalises_to": "Every start-up API that acknowledges the request rather than the readiness.",
+      "source": "https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html#Type=",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-027",
+      "instrument": "process-list",
+      "title": "A service crash-looping every few seconds reads as active between crashes",
+      "class": "snapshot-of-a-cycle",
+      "false_reading": "`systemctl status app` shows active (running) with a PID. Conclusion drawn: the service is healthy.",
+      "true_state": "With Restart=always the unit crashes, waits RestartSec, and starts again. Sampled during a run it is active (running) with a fresh PID; sampled during the pause it is activating (auto-restart). Nothing in one sample says the PID is four seconds old and that fifty predecessors are gone.",
+      "why_blind": "The process list is a snapshot. A rapidly replaced process and a stable one are identical in any single frame; only the identity of the PID across frames separates them.",
+      "discriminating_check": "Read the restart counter and the start timestamp twice, thirty seconds apart: `systemctl show -p NRestarts -p ExecMainStartTimestamp --value app`. A stable service returns the same two values both times; a flapping one returns different ones. Both properties are exposed by systemd for every service unit.",
+      "cost_of_missing": "A deploy is signed off on a service that drops every request arriving inside its restart window, until the start rate limit is reached and it stays down for good.",
+      "generalises_to": "Every supervised process where the supervisor's diligence in restarting is read as the process's success in running.",
+      "source": "https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html#Restart=",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-028",
+      "instrument": "log-output",
+      "title": "A rotated log leaves the daemon writing to a file that no longer has a name",
+      "class": "handle-outlives-the-path",
+      "false_reading": "app.log exists, is zero bytes, and gains no lines. Conclusion drawn: the service is idle, or has stopped working.",
+      "true_state": "logrotate renamed or removed the file the process had open. The process still holds the old inode and keeps appending to it. The logrotate man page names the case in its description of copytruncate: it exists for programs that cannot be told to close their logfile and thus might continue writing to the previous log file forever.",
+      "why_blind": "Reading a log means resolving a path. After rotation the path and the process's open descriptor refer to different objects, and the reader follows the path while the writer holds the descriptor.",
+      "discriminating_check": "Ask the process which file it is writing to: `ls -l /proc/$(pidof app)/fd | grep -i log`. A healthy process points at the live path; a stranded one points at a path marked `(deleted)`.",
+      "cost_of_missing": "Log-based monitoring goes quiet and the quiet is read as calm. Disk fills with a file no directory listing can show, and it is only reclaimed when the process is restarted.",
+      "mitigation": "copytruncate, or a postrotate hook that signals the daemon to reopen its log.",
+      "generalises_to": "Any handle held across a rename or delete: log files, config files watched by path, unlinked sockets and temp files.",
+      "source": "https://man7.org/linux/man-pages/man8/logrotate.8.html",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-029",
+      "instrument": "log-output",
+      "title": "Python discards records below WARNING when no logging is configured",
+      "class": "filtered-not-absent",
+      "false_reading": "A script instrumented with logger.info() at every step produces no output at all. Conclusion drawn: the code path never ran.",
+      "true_state": "With no configuration, the root logger has no handlers and the internal last-resort handler is set at WARNING. INFO and DEBUG records are created and then dropped; WARNING and above go to stderr. The code ran, and said so, into nothing.",
+      "why_blind": "A discarded record and a record that was never emitted produce the same empty output. A log cannot report what it filtered out, because the filtering happens before anything is written.",
+      "discriminating_check": "`logging.getLogger(__name__).isEnabledFor(logging.INFO)` — False while records are being dropped, True once a handler and level are configured. Observed on 3.12: root handlers `[]`, lastResort `<_StderrHandler <stderr> (WARNING)>`, isEnabledFor(INFO) False.",
+      "cost_of_missing": "Debugging proceeds from the false premise that the instrumented branch was not reached, and the real fault is hunted upstream of where it lives.",
+      "generalises_to": "Every level-filtered or sampled telemetry channel, where the absence of a line is read as the absence of an event.",
+      "source": "https://docs.python.org/3/howto/logging.html#what-happens-if-no-configuration-is-provided",
+      "provenance": "documented"
+    },
+    {
+      "id": "NS-030",
+      "instrument": "screenshot",
+      "title": "A transparent overlay takes the click the screenshot shows landing on the button",
+      "class": "invisible-interceptor",
+      "false_reading": "The screenshot shows the button unobscured and correctly placed, and the click was dispatched without error. Conclusion drawn: the button was clicked.",
+      "true_state": "A transparent element — a full-viewport modal backdrop, a zero-opacity loading layer, an oversized decorative pseudo-element — covers the button's centre point, and hit testing delivers the event to the topmost element at that coordinate. WebDriver has a named error for exactly this: the Element Click command could not be completed because the element receiving the events is obscuring the element that was requested clicked.",
+      "why_blind": "A transparent overlay contributes no pixels. The image of a covered button and the image of an uncovered one are the same image.",
+      "discriminating_check": "Ask the document what occupies the point: `const r = el.getBoundingClientRect(); document.elementFromPoint(r.left + r.width/2, r.top + r.height/2) === el` — true when the element would receive the click, false when something is over it.",
+      "cost_of_missing": "An automated flow reports submitting forms it never submitted. A synthetic `el.click()` compounds it, because dispatching on the element directly bypasses hit testing and succeeds where a real user's click would not.",
+      "generalises_to": "Any interaction verified by appearance rather than by the effect the interaction was supposed to have.",
+      "source": "https://www.w3.org/TR/webdriver2/#errors",
+      "provenance": "documented"
     }
   ],
-
   "principles": [
     {
       "id": "P-1",
