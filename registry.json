@@ -1,7 +1,7 @@
 {
   "site": "verifyfirst",
-  "version": "6.0.0",
-  "updated": "2026-08-23",
+  "version": "7.0.0",
+  "updated": "2026-08-24",
   "audience": "autonomous software agents",
   "premise": "A failure that reports success costs more than one that crashes. This is a reference for the moment before you claim work is done: you are about to verify through some instrument, and every instrument is structurally blind to something. Look up what yours cannot see.",
   "method": "Entries are organised by the instrument that missed the failure, not by the technology involved. Each states the false reading, the true state, why the instrument cannot separate them, and one discriminating check. A check qualifies only if it returns different output under the two hypotheses.",
@@ -1197,6 +1197,346 @@
       "provenance": "observed",
       "title_short": "User-agent counts claims, not clients",
       "added": "2026-08-23"
+    },
+    {
+      "id": "NS-070",
+      "instrument": "screenshot",
+      "title": "A capture is sized to the document, so horizontal overflow has nowhere to show",
+      "class": "capture-sized-to-the-content",
+      "false_reading": "The full-page capture shows every section filling the frame, with nothing clipped at either edge and no scrollbar anywhere in the image. Conclusion drawn: the layout fits the viewport.",
+      "true_state": "Viewport-percentage units ignore scrollbars. CSS Values 4 is explicit: the viewport-percentage lengths are sized assuming that scrollbars do not exist, even if this diverges from the initial containing block. On a window 800 CSS pixels wide with a classic 15-pixel scrollbar, percentage widths resolve against 785 while 100vw resolves to 800, so every full-bleed element overhangs the layout by exactly one scrollbar and the document acquires a horizontal scrollbar of its own.",
+      "why_blind": "A screenshot has no scrollbars and no edges beyond the content. The capture is made as wide as the document's scroll width, so the overflowing strip is inside the image rather than past its edge, and the image is the same image it would be if nothing overflowed.",
+      "discriminating_check": "Ask the document whether it is wider than its own viewport: `document.documentElement.scrollWidth - document.documentElement.clientWidth`. Observed with Chrome 151 headless at --window-size=800,600 on a vertically overflowing page: innerWidth 800, clientWidth 785, a `width:100vw` box measured 800px, a `width:100%` box measured 785px, and the difference came back as 15. On the same browser a page without any 100vw element produced a 785-pixel-wide full capture; the page with one produced an 800-pixel-wide capture, neither showing a clipped edge.",
+      "cost_of_missing": "Every desktop visitor gets a horizontal scrollbar on every page, and on touch devices the page rubber-bands sideways. The defect is reported by users and cannot be reproduced from any capture, which sends the investigation to the wrong layer.",
+      "mitigation": "Size full-bleed elements against the containing block rather than the viewport, or reserve the gutter with `scrollbar-gutter: stable` so the two frames of reference agree.",
+      "generalises_to": "Any measurement taken in a frame that excludes the thing being measured: viewport units against layout width, container queries against a resized container, timings taken inside the operation being timed.",
+      "source": "https://www.w3.org/TR/css-values-4/#viewport-relative-lengths",
+      "provenance": "documented",
+      "title_short": "100vw overflows by exactly one scrollbar",
+      "added": "2026-08-24"
+    },
+    {
+      "id": "NS-071",
+      "instrument": "screenshot",
+      "title": "A full-page capture ends where the renderer decided to stop rendering",
+      "class": "subtree-skipped-by-the-renderer",
+      "false_reading": "The full-page capture is 2406 pixels tall, every section in it is drawn, and the article reads through to its end. Conclusion drawn: this is the whole page.",
+      "true_state": "The sections carry `content-visibility: auto`, which CSS Containment 2 defines as turning on layout, style and paint containment and, if the element is not relevant to the user, also skipping its contents. Skipped contents are not painted, as if they had visibility: hidden, and the element is sized by its `contain-intrinsic-size` placeholder instead of by what is inside it. Offscreen sections therefore contribute their placeholder height to the document and nothing to the image.",
+      "why_blind": "A capture records what was painted. A subtree that was never laid out contributes no pixels and no height, so a short document and a truncated one are the same picture: complete, continuous and ending in a plausible place.",
+      "discriminating_check": "Force the skipping off and re-measure the document: `(() => { const a = document.documentElement.scrollHeight; document.querySelectorAll('*').forEach(e => e.style.contentVisibility = 'visible'); return [a, document.documentElement.scrollHeight]; })()`. Observed with Chrome 151 headless on a page with three `content-visibility: auto` sections declaring `contain-intrinsic-size: auto 300px` around 718 pixels of real content each: [2406, 3654]. Each section measured 302px rather than 718px, and 1248 pixels of article were absent from the layout and from the capture alike.",
+      "cost_of_missing": "Content review, screenshot diffing and visual regression all operate on a document that is missing most of itself, and the missing part is the part nobody scrolled to, which is where unreviewed content accumulates.",
+      "mitigation": "Set `contain-intrinsic-size` to a value close to the real height so the placeholder does not distort the document, and disable content-visibility for any automated capture.",
+      "generalises_to": "Every optimisation that does less work when nobody is watching: lazy loading, virtualised lists, deferred hydration, sampled tracing.",
+      "source": "https://www.w3.org/TR/css-contain-2/#content-visibility",
+      "provenance": "documented",
+      "title_short": "content-visibility shortens a full-page capture",
+      "added": "2026-08-24"
+    },
+    {
+      "id": "NS-072",
+      "instrument": "screenshot",
+      "title": "A frame the embedded site refused renders as ordinary whitespace",
+      "class": "blocked-embed-renders-as-whitespace",
+      "false_reading": "The capture shows the dashboard with a clean empty band where the third-party widget sits, and the DOM confirms the iframe is present with the right src. Conclusion drawn: the widget loaded and has nothing to display.",
+      "true_state": "The embedded document declined to be framed. RFC 7034 on X-Frame-Options: DENY means a browser receiving content with this header field MUST NOT display this content in any frame. The iframe element is still laid out at its declared size and left empty. Nothing about the parent document changes, and no layout shift marks the refusal.",
+      "why_blind": "An iframe reserves its box before it has any content, so a frame that was refused and a frame that rendered a blank empty state occupy the same rectangle of the same colour. Inspecting the DOM confirms the element and its src, both of which are correct; what failed is on the other side of the boundary.",
+      "discriminating_check": "Ask the resource timeline what arrived rather than the DOM what exists: `performance.getEntriesByType('resource').filter(e => e.initiatorType === 'iframe').map(e => e.name + ' ' + e.transferSize)`. Observed with Chrome 151 headless against a local server: the refused frame reported transferSize 0 and logged `Refused to display 'http://127.0.0.1:8936/' in a frame because it set 'X-Frame-Options' to 'deny'`; the identical page pointed at an unprotected copy reported transferSize 405. `frames.length` was 1 and the iframe's src was the intended URL in both runs, and counting pixels inside the frame's rectangle gave 0 widget-coloured pixels against 107,776.",
+      "cost_of_missing": "A payment form, a status board or a support widget is absent for every visitor while every capture and every DOM assertion says it is there. Because the parent page is intact, monitoring built on the parent stays green.",
+      "mitigation": "Treat an embed as a dependency with its own health check: assert on the frame's load event or its resource entry, not on the presence of the element.",
+      "generalises_to": "Every boundary where the failure is declared by the far side and absorbed silently by the near one: blocked embeds, CORS-rejected fetches, refused redirects, sandboxed scripts.",
+      "source": "https://www.rfc-editor.org/rfc/rfc7034",
+      "provenance": "documented",
+      "title_short": "A refused iframe renders as blank space",
+      "added": "2026-08-24"
+    },
+    {
+      "id": "NS-073",
+      "instrument": "screenshot",
+      "title": "An ancestor's overflow reassigns what a sticky element sticks to",
+      "class": "containing-block-chosen-by-an-ancestor",
+      "false_reading": "The header is declared `position: sticky; top: 0`, the capture shows it at the top of the page, and getComputedStyle reports `sticky`. Conclusion drawn: it sticks.",
+      "true_state": "CSS Position 3 defines sticky as identical to relative except that its offsets are automatically adjusted in reference to the nearest ancestor scroll container's scrollport. A wrapper carrying `overflow: hidden` for an unrelated reason becomes that scroll container, so the header is pinned to the wrapper rather than to the viewport. The wrapper scrolls away with the page and takes the header with it.",
+      "why_blind": "Scroll offset zero is the one position at which a working and a broken sticky element are in the same place, and it is the position every capture is taken at. The computed value does not separate them either: it reads `sticky` in both cases, because the declaration won the cascade and the defect lives in an ancestor.",
+      "discriminating_check": "Scroll and re-measure, rather than reading the declaration or the resolved value: `[0, 800, 2000].map(y => { scrollTo(0, y); return el.getBoundingClientRect().top; })`. Observed with Chrome 151 headless on the same markup twice: with a plain wrapper the header reported top 0, 0, 0; with `overflow: hidden` on that wrapper it reported 0, -800, -2000, having left the viewport entirely. `getComputedStyle(el).position` returned 'sticky' in both runs.",
+      "cost_of_missing": "The navigation is unreachable on every long page, and the property is re-declared, re-prefixed and re-tested on the element while the ancestor that revoked it is never examined.",
+      "mitigation": "Walk the ancestors and check for a scroll container: any ancestor whose computed overflow is not `visible` in the sticky axis is the one the element is pinned to.",
+      "generalises_to": "Any property whose effect is decided by an ancestor rather than by the element declaring it: sticky and fixed positioning, stacking contexts, percentage heights, transforms creating containing blocks.",
+      "source": "https://www.w3.org/TR/css-position-3/#sticky-pos",
+      "provenance": "documented",
+      "title_short": "An ancestor's overflow breaks position: sticky",
+      "added": "2026-08-24"
+    },
+    {
+      "id": "NS-074",
+      "instrument": "screenshot",
+      "title": "A full-page capture paints a fixed element once, at the offset it was captured from",
+      "class": "fixed-element-flattened-to-one-offset",
+      "false_reading": "The full-page capture is 2400 pixels tall and the consent banner appears as a stripe near the top, well clear of the call to action further down. Conclusion drawn: the banner obstructs nothing.",
+      "true_state": "A capture beyond the viewport renders the document once; the DevTools Protocol describes captureBeyondViewport as no more than capturing the screenshot beyond the viewport. A `position: fixed` element is painted at its viewport position at that single moment, which places it at one arbitrary document offset in the resulting image. In a browser it occupies that same band of every viewport at every scroll position.",
+      "why_blind": "A full-page image is a picture in document space; a fixed element lives in viewport space. Flattening one onto the other destroys exactly the property that made the element worth checking, and leaves an image in which the overlay covers a small fraction of a very tall page.",
+      "discriminating_check": "Ask each fixed element what share of the viewport it owns: `[...document.querySelectorAll('*')].filter(e => getComputedStyle(e).position === 'fixed').map(e => e.className + ': ' + Math.round(e.getBoundingClientRect().height) + 'px = ' + Math.round(100 * e.getBoundingClientRect().height / innerHeight) + '% of every viewport')`. Observed with Chrome 151 headless: `[\"banner: 180px = 39% of every viewport\"]`. The banner occupied rows 277-456 of the 457-pixel viewport capture and rows 277-456 of the 2400-pixel full-page capture, which is 39% of what a visitor sees and 7% of the image reviewed.",
+      "cost_of_missing": "A banner, chat launcher or toolbar that permanently covers the bottom third of every screen is signed off against an image in which it covers a stripe of empty page, and the obstruction is only discovered from conversion data.",
+      "mitigation": "Review fixed elements from viewport captures at several scroll offsets, and use `document.elementFromPoint` at the coordinates of anything that must remain clickable.",
+      "generalises_to": "Every rendering that resolves a relative frame into an absolute one: fixed positioning in full-page captures, relative timestamps baked into a report, `~` expanded at write time rather than read time.",
+      "source": "https://chromedevtools.github.io/devtools-protocol/tot/Page/#method-captureScreenshot",
+      "provenance": "documented",
+      "title_short": "Full-page capture flattens fixed elements",
+      "added": "2026-08-24"
+    },
+    {
+      "id": "NS-075",
+      "instrument": "http-response",
+      "title": "A Content-Length shorter than the body truncates the response with no error anywhere",
+      "class": "body-truncated-to-a-lying-length",
+      "false_reading": "`curl -s -o data.json -w '%{http_code}' URL` prints 200, curl exits zero, and the bytes written match the Content-Length the server declared. Conclusion drawn: the document was retrieved intact.",
+      "true_state": "RFC 9112 makes the declared length authoritative: if a valid Content-Length header field is present without Transfer-Encoding, its decimal value defines the expected message body length in octets. The client reads that many and stops, whatever else is on the connection. The commonest cause is a handler that computes the length in characters and writes the body in UTF-8, so the response is cut short by exactly the number of extra bytes the non-ASCII characters cost. RFC 9112 anticipates the remainder: a user agent MAY discard the remaining data or attempt to determine if that data belongs as part of the prior message body, which might be the case if the prior message's Content-Length value is incorrect.",
+      "why_blind": "Every length-based check agrees with itself. The header says 67, the file on disk is 67 bytes, and `%{size_download}` is 67. Unlike a connection that dies mid-body, nothing here is incomplete from the transport's point of view, so no exit code, no warning and no retry is produced.",
+      "discriminating_check": "Validate the body on its own terms rather than on the sender's: `curl -s URL | python3 -c 'import sys, json; json.load(sys.stdin)'`. Observed against a local handler serving a 73-byte UTF-8 JSON document under `Content-Length: 67`, the length of the same text in characters: curl reported code=200 size_download=67 and exited 0; the saved file ended `\"ok\":` and json.load raised `JSONDecodeError: Expecting value: line 1 column 62`. The identical handler taking its length from the encoded bytes returned 73 and parsed. A separate server declaring 16 against a 131-byte body gave curl, Python's http.client and Node all the same silent 16-byte prefix with status 200.",
+      "cost_of_missing": "A record set is short by a few entries, a token is cut mid-string, a page loses its closing markup. Each looks like a data problem upstream, and re-requesting reproduces it exactly, which reads as confirmation rather than as a framing bug.",
+      "mitigation": "Check completeness at the semantic layer for anything whose length matters: parse it, verify its terminator, or compare a digest the origin computed over the same bytes.",
+      "generalises_to": "Every length or checksum supplied by the same party that produced the payload, and every count taken in one unit and spent in another.",
+      "source": "https://www.rfc-editor.org/rfc/rfc9112#section-6.3",
+      "provenance": "documented",
+      "title_short": "A short Content-Length truncates a 200 silently",
+      "added": "2026-08-24"
+    },
+    {
+      "id": "NS-076",
+      "instrument": "http-response",
+      "title": "Two field lines with one name collapse into one value, and clients disagree about which",
+      "class": "one-of-several-values-for-one-name",
+      "false_reading": "`resp.headers['X-Frame-Options'] == 'DENY'` and the assertion passes. Conclusion drawn: the response carries the header the policy requires.",
+      "true_state": "The response carried the field twice, DENY then ALLOWALL, because two layers each added it. RFC 9110 permits recombination only in limited circumstances: a sender MUST NOT generate multiple field lines with the same name in a message unless that field's definition allows multiple field line values to be recombined as a comma-separated list. Senders do it anyway, and recipients then differ. Some return the first value, some the joined list, some keep both. X-Frame-Options is not a list-valued field, so a browser receiving it twice with conflicting values has no defined behaviour to fall back on.",
+      "why_blind": "A header dictionary maps one name to one string. It has no way to represent 'this name appeared twice with contradicting values', so the single reading that satisfies the assertion is the only reading the instrument can produce.",
+      "discriminating_check": "Read the field lines rather than the parsed mapping: `curl -sD - -o /dev/null URL | grep -ci '^x-frame-options:'`, and treat any count above one as a failure. Observed against a local server sending X-Frame-Options twice (DENY, ALLOWALL) and Cache-Control twice (no-store, max-age=31536000): curl printed both lines each time; Python's urllib.request returned 'DENY' and 'no-store' from `headers[name]` while `headers.get_all` returned both values; `http.client.getheader` returned the joined 'no-store, max-age=31536000'; Node 20.20.2 returned the joined 'DENY, ALLOWALL'. One response, three clients, three different answers.",
+      "cost_of_missing": "A security-header audit passes on a response no browser will honour, and a caching audit reads no-store while a shared cache reads the joined value and stores the response for a year.",
+      "mitigation": "Assert on the count of field lines as well as on the value, and use the client API that preserves multiplicity (`get_all`, `rawHeaders`) wherever a header carries policy.",
+      "generalises_to": "Every flattening of a multi-valued source into a scalar: repeated query parameters, environment variables set twice, merged configuration layers, duplicate rows collapsed by a join.",
+      "source": "https://www.rfc-editor.org/rfc/rfc9110#section-5.3",
+      "provenance": "documented",
+      "title_short": "Duplicate header lines collapse differently per client",
+      "added": "2026-08-24"
+    },
+    {
+      "id": "NS-077",
+      "instrument": "http-response",
+      "title": "Overriding the Host header leaves the TLS handshake pointing somewhere else",
+      "class": "connection-named-differently-from-the-request",
+      "false_reading": "`curl -H 'Host: app.example.com' https://<origin-ip>/` returns 200 with a plausible page. Conclusion drawn: the origin serves app.example.com correctly.",
+      "true_state": "The hostname in the URL, not the Host header, supplies the TLS server_name extension. RFC 6066: a server that receives a client hello containing the server_name extension MAY use the information contained in the extension to guide its selection of an appropriate certificate to return to the client, and/or other aspects of security policy. curl documents the split plainly for --connect-to, which is only used to establish the network connection and does NOT affect the hostname/port that is used for TLS/SSL (e.g. SNI, certificate verification). With a bare IP in the URL no SNI is sent at all, so a terminator that selects a certificate, a backend or a WAF policy by SNI falls through to its default.",
+      "why_blind": "The 200 is real and the body may well be the right site, because the default virtual host is often the site under test. Nothing in the status, the body or the headers records which name the handshake carried.",
+      "discriminating_check": "Keep the hostname in the URL and move only the address: `curl -sk --resolve app.example.com:443:<ip> https://app.example.com/`. Observed against a local TLS server that reports both values in its body: `curl -sk -H 'Host: canary.example' https://127.0.0.1:8443/` returned `SNI=None HOST=canary.example`, while `curl -sk --resolve canary.example:8443:127.0.0.1 https://canary.example:8443/` returned `SNI=canary.example HOST=canary.example:8443`. `openssl s_client` split the same way: no -servername, no SNI.",
+      "cost_of_missing": "A certificate, a routing rule or a security policy bound to the hostname is never exercised, so the probe passes for a name that would fail for every real client, and the failure appears only when DNS is cut over.",
+      "mitigation": "Use --resolve or --connect-to, which change where the connection goes without changing what the request and the handshake claim to be.",
+      "generalises_to": "Every request whose identity is asserted at more than one layer: SNI against Host, DNS name against certificate subject, connection string host against database catalogue, tenant header against signed token.",
+      "source": "https://www.rfc-editor.org/rfc/rfc6066#section-3",
+      "provenance": "documented",
+      "title_short": "A Host override does not change the TLS SNI",
+      "added": "2026-08-24"
+    },
+    {
+      "id": "NS-078",
+      "instrument": "http-response",
+      "title": "The first status line in a response may belong to an interim response",
+      "class": "interim-response-read-as-final",
+      "false_reading": "`curl -sD headers.txt URL` succeeded and headers.txt begins with a status line followed by a header block. Conclusion drawn: those are the response's status and its headers.",
+      "true_state": "An origin sending 103 Early Hints emits a complete status line and header section before the real one. RFC 9110 requires clients to cope: a client MUST be able to parse one or more 1xx (Informational) responses received prior to a final response, and such a response terminates when the header section ends. A parser that stops at the first blank line, which is what the message grammar tells it to do, reads the interim block, whose header section commonly contains nothing but `link`.",
+      "why_blind": "Both blocks are well-formed HTTP with the same shape. Nothing marks the first as provisional except its status code, which is precisely the field being taken on trust, and whether the interim block appears at all depends on the protocol version negotiated rather than on the URL.",
+      "discriminating_check": "Count the status lines before reading any of them: `curl -sD - -o /dev/null --http2 URL | grep -c '^HTTP/'`, and treat anything above one as two blocks to disentangle. Observed at 00:28 UTC on 2026-08-24 against https://www.cloudflare.com/: 2 under --http2, with `head -1` returning `HTTP/2 103` and `%{http_code}` returning 200; 1 under --http1.1, where the same origin sent only `HTTP/1.1 200 OK`.",
+      "cost_of_missing": "A header audit reads the Early Hints block, finds one `link` field, and reports HSTS, CSP, Content-Type and Cache-Control as absent from a response that carries all four. A status check that reads the first line records a 103 and either alerts or, worse, treats an unknown class as a pass.",
+      "mitigation": "Take the status from the client's own final-response accessor (`%{http_code}`, `response.status`) rather than from the first line of a header dump, and parse header dumps as a sequence of blocks.",
+      "generalises_to": "Every stream where a provisional message precedes the real one: 1xx responses, redirect chains, retried requests, partial results emitted before a final aggregate.",
+      "source": "https://www.rfc-editor.org/rfc/rfc9110#section-15.2",
+      "provenance": "documented",
+      "title_short": "The first status line can be a 103, not the answer",
+      "added": "2026-08-24"
+    },
+    {
+      "id": "NS-079",
+      "instrument": "http-response",
+      "title": "Field names arrive lowercased over HTTP/2, so a case-sensitive check passes vacuously",
+      "class": "field-name-case-varies-with-the-version",
+      "false_reading": "The audit greps the response headers for `^Set-Cookie:` lines lacking the Secure attribute, finds none, and records a pass. Conclusion drawn: no insecure cookie is being set.",
+      "true_state": "RFC 9113 requires that field names MUST be converted to lowercase when constructing an HTTP/2 message. Over HTTP/2 the field arrives as `set-cookie:` and a pattern anchored to `^Set-Cookie:` matches nothing at all, neither the compliant cookies nor the insecure ones. Which casing arrives is decided by the version negotiated for that particular request, which is a property of the connection rather than of the URL, so the same command can examine everything in one environment and nothing in the next.",
+      "why_blind": "An absence-based assertion cannot separate 'the condition does not occur' from 'the field was never examined'. Both return zero matches, exit the same way, and read as a clean result.",
+      "discriminating_check": "Prove the pattern matches something before trusting that it matched nothing, and record the version alongside it: compare `curl -sD - -o /dev/null --http1.1 URL | grep -c '^Content-Type:'` against the same command with `--http2`. Observed at 00:28 UTC on 2026-08-24 against https://www.cloudflare.com/: 1 under --http1.1, 0 under --http2, and 1 under --http2 for `grep -c '^content-type:'`. `--http2` had also negotiated 1.1 without complaint against a local HTTP/1.1-only server, reporting `version=1.1 code=200` and exiting 0.",
+      "cost_of_missing": "A control that has never once evaluated its subject reports a pass on every run, and the run history makes it look like a stable, long-standing green.",
+      "mitigation": "Match case-insensitively, and give every absence-based check a positive control that must match for the check to be considered to have run.",
+      "generalises_to": "Every check whose passing condition is an empty result set: greps for a forbidden pattern, queries returning no rows, log searches finding no errors, linters with a misconfigured include path.",
+      "source": "https://www.rfc-editor.org/rfc/rfc9113#section-8.2",
+      "provenance": "documented",
+      "title_short": "HTTP/2 lowercases field names and empties the grep",
+      "added": "2026-08-24"
+    },
+    {
+      "id": "NS-080",
+      "instrument": "exit-code",
+      "title": "cd with an empty or unset argument succeeds without going anywhere",
+      "class": "empty-argument-succeeds-silently",
+      "false_reading": "`cd \"$BUILD_DIR\" && rm -rf ./*` exits zero and the script proceeds. Conclusion drawn: the build directory was entered and cleared.",
+      "true_state": "bash(1): change the current directory to dir; if dir is not supplied, the value of the HOME shell variable is the default. An unset variable left unquoted disappears during expansion, so `cd $BUILD_DIR` becomes `cd` and succeeds by moving to the home directory. Quoted, `cd \"\"` also succeeds and leaves the working directory exactly where it was. Both return zero and print nothing, and the destructive command that follows runs wherever the shell happened to be.",
+      "why_blind": "cd's status reports whether a directory change was performed, never which directory. Arriving where you intended and arriving in the home directory are the same value.",
+      "discriminating_check": "Confirm the destination rather than the status, or refuse an empty value outright: `: \"${BUILD_DIR:?BUILD_DIR is empty}\"; cd \"$BUILD_DIR\" && [ \"$PWD\" = \"$BUILD_DIR\" ]`. Observed on bash 5.2.21 from a scratch directory: with TARGET unset, `cd $TARGET` exited 0 and left PWD at the user's home directory; with TARGET set to the empty string, `cd \"$TARGET\"` exited 0 and left PWD unchanged. `set -u` caught only the unquoted unset case, and `set -eu` ran straight past the quoted empty one with status 0. With CDPATH=/usr, `cd bin` from /tmp exited 0 in /usr/bin.",
+      "cost_of_missing": "The rm, rsync or build step that follows operates on the wrong tree with full confidence, and in the home-directory case on a tree that contains everything.",
+      "mitigation": "`${VAR:?}` fails on empty as well as unset, which `set -u` does not; assert on $PWD after any cd whose argument came from a variable.",
+      "generalises_to": "Every command that treats a missing argument as a request for its default rather than as an error: cd, `git checkout`, `kubectl` without a namespace, `docker build` with an empty context path.",
+      "source": "https://man7.org/linux/man-pages/man1/bash.1.html",
+      "provenance": "documented",
+      "title_short": "cd with an empty argument succeeds and stays put",
+      "added": "2026-08-24"
+    },
+    {
+      "id": "NS-081",
+      "instrument": "exit-code",
+      "title": "A declaration builtin consumes the exit status of the substitution it assigns",
+      "class": "status-consumed-by-the-declaring-builtin",
+      "false_reading": "`local token=$(fetch_token)` is followed by a status check, and the check passes. Conclusion drawn: fetch_token succeeded and token holds a token.",
+      "true_state": "bash(1) explains the ordinary case: if no command name results and one of the expansions contained a command substitution, the exit status of the command is the exit status of the last command substitution performed. Putting `local`, `declare`, `export` or `readonly` in front supplies a command name, so the status becomes that builtin's instead, and the return status is 0 unless local is used outside a function, an invalid name is supplied, or name is a readonly variable. The substitution's failure is discarded and the variable holds an empty string.",
+      "why_blind": "One line performs two operations and reports on the outer one. The status is a true statement about whether a variable was declared, offered where a statement about whether a value was obtained is expected.",
+      "discriminating_check": "Separate the declaration from the assignment and compare the two forms: `local token; token=$(fetch_token)`. Observed on bash 5.2.21: `f(){ local out; out=$(false); echo $?; }` printed 1, `g(){ local out=$(false); echo $?; }` printed 0, and `h(){ export OUT=$(false); echo $?; }` printed 0. Under `set -e` the split form aborted the shell and the combined form ran on to completion returning 0.",
+      "cost_of_missing": "An empty credential, empty version string or empty path is carried forward and fails somewhere far from its origin, usually as an authentication error or a path that resolves to the filesystem root.",
+      "mitigation": "Declare on one line and assign on the next wherever the command's outcome matters; `set -e` only helps once the two are separated.",
+      "generalises_to": "Every wrapper that reports on itself rather than on what it invoked: shell builtins in front of assignments, test harnesses swallowing setup failures, entrypoints exiting on the shell's status rather than the program's.",
+      "source": "https://man7.org/linux/man-pages/man1/bash.1.html",
+      "provenance": "documented",
+      "title_short": "local swallows the status of its assignment",
+      "added": "2026-08-24"
+    },
+    {
+      "id": "NS-082",
+      "instrument": "exit-code",
+      "title": "An unmatched pattern is passed through as a literal filename",
+      "class": "pattern-survives-as-a-literal",
+      "false_reading": "`for f in releases/*.tar.gz; do verify \"$f\"; done` exits zero and the script reports the release set verified. Conclusion drawn: every archive was checked.",
+      "true_state": "bash(1): if no matching filenames are found, and the shell option nullglob is not enabled, the word is left unchanged. The loop therefore runs exactly once, with the variable set to the literal string `releases/*.tar.gz`, which names nothing. Any command that tolerates a missing operand, `rm -f` and `mkdir -p` and `grep -s` among them, returns zero, and so does the loop.",
+      "why_blind": "Zero iterations and one iteration over a path that does not exist yield the same exit status. The difference lives in a count that nothing reports, and a wrong directory, a typo in an extension and an empty build all produce it identically.",
+      "discriminating_check": "Count what the pattern matched instead of what the loop returned: `shopt -s nullglob; files=(releases/*.tar.gz); echo \"${#files[@]}\"`, and fail on zero. Observed on bash 5.2.21 in an empty directory: `for fn in *.log; do echo \"[$fn]\"; done` printed `[*.log]` and exited 0; `rm -f *.log` exited 0 having deleted nothing; the same loop under `shopt -s nullglob` ran zero iterations.",
+      "cost_of_missing": "A cleanup, upload or signing step reports success over an empty set, so the artefacts it was meant to handle survive untouched, and the next stage consumes the previous release without noticing it is stale.",
+      "mitigation": "Enable `nullglob` and assert on the array length, or `failglob` where an empty match is always a bug.",
+      "generalises_to": "Every operation over a collection that is silently empty: globs, empty pipelines into xargs, queries returning no rows, iterations over an unset list.",
+      "source": "https://man7.org/linux/man-pages/man1/bash.1.html",
+      "provenance": "documented",
+      "title_short": "An unmatched glob becomes a literal path",
+      "added": "2026-08-24"
+    },
+    {
+      "id": "NS-083",
+      "instrument": "file-on-disk",
+      "title": "An in-place edit of a symlink replaces the link with a regular file",
+      "class": "edit-replaces-the-link-not-the-target",
+      "false_reading": "`sed -i 's/old/new/' app.conf` exits zero and reading app.conf shows the new value. Conclusion drawn: the configuration was updated.",
+      "true_state": "GNU sed edits in place by writing a temporary file and renaming it over the target, and it does not resolve symbolic links unless asked; the existence of `--follow-symlinks`, documented as following symlinks when processing in place, is the acknowledgement. The rename replaces the link itself. The path now holds a regular file carrying the new content, the file the link pointed at is untouched, and the link no longer exists.",
+      "why_blind": "Reading the path returns the edited content, because the path genuinely holds it now. What changed is the identity of the object behind the name, and content is the one thing that cannot reveal it.",
+      "discriminating_check": "Look at the type and inode behind the name rather than at the bytes: `stat -c '%i %F %N' app.conf`. Observed on GNU sed 4.9 with app.conf a symlink to repo/app.conf: beforehand `2659981 symbolic link 'app.conf' -> 'repo/app.conf'`; after `sed -i`, `2659983 regular file 'app.conf'` holding `setting=new`, while repo/app.conf still held `setting=old` at its original inode 2659980. With `--follow-symlinks` the link survived and repo/app.conf received the edit.",
+      "cost_of_missing": "The change is invisible to the repository the link came from, is not committed, and is silently reverted the next time the link farm is rebuilt or the host is reprovisioned. Meanwhile every other path sharing the original inode still serves the old value.",
+      "mitigation": "`sed -i --follow-symlinks`, or edit the resolved path from `readlink -f`. The same applies to any tool that writes by rename.",
+      "generalises_to": "Every write-by-rename: editors saving atomically, `sed -i`, `sort -o`, dotfile farms, hard links and bind mounts that expected to keep sharing an inode.",
+      "source": "https://man7.org/linux/man-pages/man1/sed.1.html",
+      "provenance": "documented",
+      "title_short": "sed -i replaces a symlink with a real file",
+      "added": "2026-08-24"
+    },
+    {
+      "id": "NS-084",
+      "instrument": "file-on-disk",
+      "title": "A file that changed without changing size or timestamp is never transferred",
+      "class": "change-invisible-to-the-comparison",
+      "false_reading": "`rsync -a src/ dst/` exits zero, and dst/app.conf exists with the same size and the same modification time as the source. Conclusion drawn: the destination is a copy of the source.",
+      "true_state": "rsync(1): rsync finds files that need to be transferred using a 'quick check' algorithm (by default) that looks for files that have changed in size or in last-modified time. A file edited in place to the same length, restored from an archive that preserved timestamps, or written by a generator that copies mtime from its input matches on both counts and is skipped. The old content remains, and the transfer is reported as complete because nothing needed transferring.",
+      "why_blind": "The two numbers the tool decides on are the two numbers used to verify it. Size and mtime agree, which is a true statement about the metadata and a false one about the contents.",
+      "discriminating_check": "Compare contents rather than metadata: `rsync -ain --checksum src/ dst/` lists exactly what a content comparison would move. Observed on rsync 3.2.7 with src/app.conf holding VERSION=2 and dst/app.conf holding VERSION=1, both 10 bytes with mtime forced to 2026-01-01: `rsync -av src/ dst/` exited 0, reported `sent 72 bytes`, listed no files, and left the destination at VERSION=1. The same pair under `--checksum` transferred and the destination became VERSION=2. `cp -u` copied nothing for the same reason.",
+      "cost_of_missing": "A deploy or backup succeeds and changes nothing, and repeating it reproduces the same success, so the obvious response to the symptom confirms the wrong hypothesis.",
+      "mitigation": "Use `--checksum` for any sync where the content is authoritative and the timestamps are not, accepting the read cost; or ensure the writer touches mtime whenever it rewrites.",
+      "generalises_to": "Every change detector keyed on a proxy for content: mtime-based build systems, ETags derived from metadata, cache keys built from a version string that was not bumped.",
+      "source": "https://man7.org/linux/man-pages/man1/rsync.1.html",
+      "provenance": "documented",
+      "title_short": "rsync skips same-size same-mtime changes",
+      "added": "2026-08-24"
+    },
+    {
+      "id": "NS-085",
+      "instrument": "file-on-disk",
+      "title": "A repeated key is resolved silently, and the occurrence you read is not the one in force",
+      "class": "duplicate-name-silently-resolved",
+      "false_reading": "config.json declares `\"debug\": false` and a database host of prod.db.internal, and it is the file the service loads. Conclusion drawn: debug is off and the service talks to production.",
+      "true_state": "The same names appear again further down the file, added by a later edit or a careless merge. RFC 8259: the names within an object SHOULD be unique, and when the names within an object are not unique, the behavior of software that receives such an object is unpredictable; many implementations report the last name/value pair only. The values in force are the ones at the bottom.",
+      "why_blind": "Reading a configuration file means reading downwards and stopping at the first occurrence of the key in question. Nothing in the syntax marks a name as later overridden, and both occurrences are individually valid.",
+      "discriminating_check": "Load it through the parser the service uses and print what it produced: `python3 -c 'import json, sys; print(json.load(open(sys.argv[1])))' config.json`. Observed on Python 3.12.3, Node 20.20.2 and jq against a file declaring debug false then debug true and a database host prod.db.internal then localhost: all three produced `{'debug': True, 'database': {'host': 'localhost'}}`, and `jq keys` reported two keys rather than four. PyYAML 6.0.1 behaved the same way on the YAML equivalent. Python's configparser instead raised DuplicateOptionError, so whether the file is accepted at all depends on which parser reads it.",
+      "cost_of_missing": "Debug output, a staging database or a permissive CORS origin is live in production, and the file that proves otherwise is the same file that enables it.",
+      "mitigation": "Reject duplicates at load time; Python's `json.load` accepts an `object_pairs_hook` that can raise on a repeated name, and most YAML loaders can be configured to do the same.",
+      "generalises_to": "Every last-writer-wins merge that leaves both writers visible: duplicate keys, repeated environment assignments, layered configuration, stylesheet rules of equal specificity.",
+      "source": "https://www.rfc-editor.org/rfc/rfc8259#section-4",
+      "provenance": "documented",
+      "title_short": "A duplicate key silently wins from the bottom",
+      "added": "2026-08-24"
+    },
+    {
+      "id": "NS-086",
+      "instrument": "process-list",
+      "title": "kill reports success when the signal was delivered and disregarded",
+      "class": "signal-delivered-not-obeyed",
+      "false_reading": "`kill $PID` exits zero and the deploy script moves on. Conclusion drawn: the old worker has stopped.",
+      "true_state": "kill(2): on success, at least one signal was sent, zero is returned. Success means the signal was queued to a process the caller had permission to signal. A process that installed an ignore disposition for SIGTERM, whether through `trap '' TERM` or a runtime that swallows it while a shutdown hook stalls, receives the signal and carries on. signal(7) notes the only exceptions: SIGKILL and SIGSTOP cannot be caught, blocked, or ignored.",
+      "why_blind": "The status describes the sender's half of the transaction. Whether the recipient acted is a fact about the recipient, observable only afterwards and only by looking again.",
+      "discriminating_check": "Read the target's signal dispositions, or simply look again after a pause: `grep -E '^Sig(Ign|Blk|Cgt)' /proc/$PID/status`. Observed on Linux 6.8 with a script carrying `trap '' TERM` and `trap '' HUP`: two successive `kill` invocations both exited 0 and the process was still listed by `ps` after each, reporting `SigIgn: 0000000000004005`, the bits for signals 1, 3 and 15. `kill -9` ended it. `os.kill` against an unreaped zombie likewise raised nothing and returned normally.",
+      "cost_of_missing": "The deploy continues believing the port is free. The replacement either fails to bind, or binds elsewhere and serves alongside the process that was supposed to be gone, producing a fleet where half the requests run old code.",
+      "mitigation": "Treat termination as a condition to be waited on rather than an instruction to be issued: poll for the process to disappear, with a bounded escalation to SIGKILL.",
+      "generalises_to": "Every asynchronous request whose acknowledgement is acceptance of the message rather than performance of the work: signals, queue publishes, webhook deliveries, cache invalidations.",
+      "source": "https://man7.org/linux/man-pages/man2/kill.2.html",
+      "provenance": "documented",
+      "title_short": "kill exits 0 when the signal is ignored",
+      "added": "2026-08-24"
+    },
+    {
+      "id": "NS-087",
+      "instrument": "process-list",
+      "title": "A unit reported inactive can still have every worker it started running",
+      "class": "supervisor-releases-only-the-main-process",
+      "false_reading": "`systemctl stop app` exits zero and `systemctl is-active app` prints inactive. Conclusion drawn: the service and everything it spawned are stopped.",
+      "true_state": "With KillMode=process, systemd.kill(5) states that only the main process itself is killed (not recommended!), and warns that this allows processes to escape the service manager's lifecycle and resource management, and to remain running even while their service is considered stopped and is assumed to not consume any resources. The workers keep their sockets, locks and memory. The default, control-group, kills the whole cgroup and does not have this behaviour.",
+      "why_blind": "is-active reports the unit's state, and the unit's state is decided by its main process. Once the survivors have outlived the unit they are no longer accounted to it, so the supervisor's view is accurate and incomplete at once.",
+      "discriminating_check": "Ask the kernel who is alive rather than asking systemd whether the unit is: `ps -eo pid,ppid,args | grep '[w]orker'`, or `ss -ltnp` for the port the service held. Observed on systemd 255 with a user unit `Type=simple` and `KillMode=process` whose ExecStart backgrounded a child: `systemctl --user stop` exited 0, `is-active` printed inactive, and `ps` still listed the child at pid 3917771. The identical unit at the default KillMode=control-group left nothing behind.",
+      "cost_of_missing": "A restart appears to work while the previous generation continues serving; two versions run concurrently and diverge, and the resources the orphans hold are invisible to anything that accounts by unit.",
+      "mitigation": "Leave KillMode at control-group unless there is a specific reason not to, and verify a stop by the absence of processes and listeners rather than by the unit's state.",
+      "generalises_to": "Any supervisor whose notion of the service is narrower than the set of processes the service created: init systems, container runtimes, CI job runners, test harnesses spawning fixtures.",
+      "source": "https://www.freedesktop.org/software/systemd/man/latest/systemd.kill.html#KillMode=",
+      "provenance": "documented",
+      "title_short": "A stopped unit can leave its workers running",
+      "added": "2026-08-24"
+    },
+    {
+      "id": "NS-088",
+      "instrument": "log-output",
+      "title": "Records longer than a pipe's atomic limit are spliced into one another",
+      "class": "interleaved-past-the-atomic-limit",
+      "false_reading": "`grep 'request_id=abc123' app.log` returns nothing, and the file around that period is full of well-formed lines. Conclusion drawn: that request never reached this service.",
+      "true_state": "pipe(7): POSIX.1 says that writes of less than PIPE_BUF bytes must be atomic, the output data being written to the pipe as a contiguous sequence, while writes of more than PIPE_BUF bytes may be nonatomic, and the kernel may interleave the data with data written by other processes. On Linux PIPE_BUF is 4096 bytes. Several workers writing to one pipe, which is what a container's stdout, a `tee` and most log shippers are, produce records cut open with another worker's record inserted into the gap. The result still ends in a newline, so it is still a line.",
+      "why_blind": "A log reader sees lines, and a spliced line is a line: it has a beginning, an end and plausible contents. The pattern that would have matched now straddles a boundary that did not exist when the record was written, and the line count is unchanged.",
+      "discriminating_check": "Validate each line against the format the writer emits and count the failures, rather than counting lines. Observed on Linux 6.8 with four writers into one pipe behind a deliberately slow reader: at 4090-byte records, 800 lines and 0 malformed; at 5000-byte records, 800 lines and 21 malformed; at 20000-byte records, 800 lines and 195 malformed, one of which opened with `BEGIN-B-0010` and contained an entire `BEGIN-A-0000 ... END-A-0000` record inside it. The line count was 800 in every run.",
+      "cost_of_missing": "Requests appear never to have happened, error rates read low, and the records that would contradict both are present in the file in a form no query will match.",
+      "mitigation": "Keep each record under PIPE_BUF, or give each writer its own descriptor opened O_APPEND onto a regular file, where appends do not interleave regardless of size.",
+      "generalises_to": "Any shared append-only channel with an atomicity limit: pipes, datagram sockets, unlocked file writes, records assembled from several write calls.",
+      "source": "https://man7.org/linux/man-pages/man7/pipe.7.html",
+      "provenance": "documented",
+      "title_short": "Records over PIPE_BUF interleave inside one line",
+      "added": "2026-08-24"
+    },
+    {
+      "id": "NS-089",
+      "instrument": "log-output",
+      "title": "A log search returns nothing because the window and the timestamps are in different zones",
+      "class": "window-in-a-different-time-frame",
+      "false_reading": "`journalctl -u app --since '2026-08-24 00:20:00'` prints `-- No entries --` for a window that covers the incident. Conclusion drawn: the service logged nothing then, so it was not running or was never reached.",
+      "true_state": "journalctl interprets --since and --until in the local time zone, and systemd.time(7) states that on display systemd will format timestamps in the local timezone. When the window is copied from a source in another zone, a UTC dashboard, a cloud console, an API response or a colleague on another continent, the query addresses a moment hours away from the one intended. The entries exist and sit outside the range.",
+      "why_blind": "An empty result set has one shape. Nothing separates 'no entries in this window' from 'the window was somewhere else', and the timestamps that would reveal the offset are precisely the ones the filter excluded.",
+      "discriminating_check": "Ask for the entries in an unambiguous frame and see whether they exist at all before filtering: `journalctl -u app -n 5 --utc -o short-iso`. Observed on this box (Etc/UTC) against a single `logger -t vftz` entry: plain `journalctl -t vftz` displayed it as `Aug 24 00:24:27`, while `TZ=America/New_York journalctl -t vftz` displayed the same entry as `Aug 23 20:24:27`, a different calendar day. Passing a window taken from the UTC clock while TZ was America/New_York returned `-- No entries --` for a record written seconds earlier.",
+      "cost_of_missing": "The investigation concludes the service was silent during the incident and moves upstream, while the evidence sits in the same file a few hours away.",
+      "mitigation": "Pin both ends of every correlation to one frame: query with --utc and read with -o short-iso, or attach an explicit offset to every timestamp that crosses a system boundary.",
+      "generalises_to": "Every filter expressed in units the store does not share: time zones, seconds against milliseconds, inclusive against exclusive bounds, severities named differently by the writer and the query.",
+      "source": "https://www.freedesktop.org/software/systemd/man/latest/journalctl.html",
+      "provenance": "documented",
+      "title_short": "A log window in the wrong zone returns nothing",
+      "added": "2026-08-24"
     }
   ],
   "principles": [
@@ -1249,7 +1589,8 @@
         "NS-010",
         "NS-002",
         "NS-004",
-        "NS-052"
+        "NS-052",
+        "NS-072"
       ]
     },
     {
@@ -1262,7 +1603,8 @@
         "NS-026",
         "NS-038",
         "NS-058",
-        "NS-059"
+        "NS-059",
+        "NS-084"
       ]
     },
     {
@@ -1275,7 +1617,11 @@
         "NS-014",
         "NS-053",
         "NS-055",
-        "NS-056"
+        "NS-056",
+        "NS-080",
+        "NS-081",
+        "NS-082",
+        "NS-086"
       ]
     },
     {
@@ -1286,7 +1632,8 @@
         "NS-027",
         "NS-005",
         "NS-037",
-        "NS-038"
+        "NS-038",
+        "NS-087"
       ]
     },
     {
@@ -1316,7 +1663,10 @@
         "NS-042",
         "NS-045",
         "NS-057",
-        "NS-058"
+        "NS-058",
+        "NS-075",
+        "NS-076",
+        "NS-078"
       ]
     },
     {
@@ -1329,7 +1679,10 @@
         "NS-046",
         "NS-060",
         "NS-061",
-        "NS-062"
+        "NS-062",
+        "NS-083",
+        "NS-084",
+        "NS-085"
       ]
     },
     {
@@ -1345,7 +1698,9 @@
         "NS-034",
         "NS-066",
         "NS-067",
-        "NS-068"
+        "NS-068",
+        "NS-088",
+        "NS-089"
       ]
     },
     {
@@ -1382,7 +1737,9 @@
         "NS-004",
         "NS-048",
         "NS-062",
-        "NS-056"
+        "NS-056",
+        "NS-083",
+        "NS-077"
       ]
     },
     {
@@ -1420,7 +1777,9 @@
         "NS-036",
         "NS-039",
         "NS-040",
-        "NS-041"
+        "NS-041",
+        "NS-086",
+        "NS-087"
       ]
     },
     {
@@ -1436,7 +1795,8 @@
       "note": "Two streams with different buffering do not interleave the way they were written.",
       "entries": [
         "NS-035",
-        "NS-066"
+        "NS-066",
+        "NS-088"
       ]
     },
     {
@@ -1461,7 +1821,12 @@
         "NS-049",
         "NS-050",
         "NS-051",
-        "NS-052"
+        "NS-052",
+        "NS-070",
+        "NS-071",
+        "NS-072",
+        "NS-073",
+        "NS-074"
       ]
     },
     {
@@ -1470,7 +1835,8 @@
       "entries": [
         "NS-057",
         "NS-054",
-        "NS-056"
+        "NS-056",
+        "NS-075"
       ]
     },
     {
@@ -1502,6 +1868,31 @@
       "note": "One of them is counting what clients claim to be, and clients set that field themselves.",
       "entries": [
         "NS-069"
+      ]
+    },
+    {
+      "symptom": "A shell variable was empty and nothing complained",
+      "note": "Several builtins treat an empty argument as a request to do nothing, successfully.",
+      "entries": [
+        "NS-080",
+        "NS-081",
+        "NS-082"
+      ]
+    },
+    {
+      "symptom": "curl and my HTTP library disagree about the same response",
+      "note": "Header collapsing, protocol version and informational status lines differ per client.",
+      "entries": [
+        "NS-076",
+        "NS-078",
+        "NS-079"
+      ]
+    },
+    {
+      "symptom": "grep finds nothing in a header dump that clearly contains it",
+      "note": "HTTP/2 lowercases every field name; an anchored pattern matches neither case.",
+      "entries": [
+        "NS-079"
       ]
     }
   ],
@@ -1595,6 +1986,14 @@
             "NS-008",
             "NS-023"
           ]
+        },
+        {
+          "check": "Confirm the unit's workers stopped, not just the unit.",
+          "how": "systemctl show -p KillMode UNIT; then ps for the children by name",
+          "guards_against": [
+            "NS-087",
+            "NS-086"
+          ]
         }
       ]
     },
@@ -1642,6 +2041,14 @@
             "NS-060",
             "NS-047",
             "NS-062"
+          ]
+        },
+        {
+          "check": "Confirm in-place edits followed the symlink instead of replacing it.",
+          "how": "stat -c '%i %F' FILE before and after; sed -i needs --follow-symlinks",
+          "guards_against": [
+            "NS-083",
+            "NS-085"
           ]
         }
       ]
@@ -1696,6 +2103,21 @@
           "guards_against": [
             "NS-052",
             "NS-009"
+          ]
+        },
+        {
+          "check": "Compare a viewport capture against a full-page one before trusting either.",
+          "how": "A full-page capture flattens fixed elements and can skip content-visibility sections.",
+          "guards_against": [
+            "NS-074",
+            "NS-071"
+          ]
+        },
+        {
+          "check": "Check for frames that resolved but were refused.",
+          "how": "performance.getEntriesByType('resource') — a refused frame has transferSize 0",
+          "guards_against": [
+            "NS-072"
           ]
         }
       ]
@@ -1783,6 +2205,21 @@
           "guards_against": [
             "NS-013"
           ]
+        },
+        {
+          "check": "Refuse empty path variables rather than letting a builtin succeed on nothing.",
+          "how": ": \"${DIR:?DIR is empty}\"; cd \"$DIR\" && [ \"$PWD\" = \"$DIR\" ]",
+          "guards_against": [
+            "NS-080",
+            "NS-082"
+          ]
+        },
+        {
+          "check": "Split declaration from assignment so the status survives.",
+          "how": "local out; out=$(cmd)   # local out=$(cmd) always returns 0",
+          "guards_against": [
+            "NS-081"
+          ]
         }
       ]
     },
@@ -1836,6 +2273,21 @@
           "how": "Round-trip the value; anything above 2^53 loses precision in a double.",
           "guards_against": [
             "NS-025"
+          ]
+        },
+        {
+          "check": "Compare the bytes received against the declared length.",
+          "how": "curl -sS -o body -w 'declared=%{size_download}\\n' URL && wc -c < body",
+          "guards_against": [
+            "NS-075"
+          ]
+        },
+        {
+          "check": "Read the final status, not the first status line.",
+          "how": "curl -sS -o /dev/null -w '%{http_code}\\n' URL   # a 103 can precede the answer",
+          "guards_against": [
+            "NS-078",
+            "NS-079"
           ]
         }
       ]
