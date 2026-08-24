@@ -81,6 +81,28 @@ def classify(ua: str) -> tuple[str, str]:
     return "unknown", ua[:48]
 
 
+def real_client_ip(req: dict) -> str:
+    """The address that actually made the request.
+
+    Behind a proxy, Caddy's client_ip is the edge that connected, so counting
+    it would show a handful of Cloudflare addresses making every request and
+    the scanner detection would never fire. Cloudflare sets CF-Connecting-IP,
+    and Caddy already records it — no server configuration needed.
+
+    This is only safe because the log is written by our own origin: a forged
+    CF-Connecting-IP from a direct connection would be recorded too. Requests
+    that did not arrive through Cloudflare are identified by the absence of
+    Cf-Ray, and fall back to the connection address.
+    """
+    h = req.get("headers", {})
+    via_cloudflare = bool(h.get("Cf-Ray") or h.get("CF-Ray"))
+    if via_cloudflare:
+        cf = h.get("Cf-Connecting-Ip") or h.get("CF-Connecting-IP")
+        if cf:
+            return cf[0]
+    return req.get("client_ip", "?")
+
+
 def read_lines(days: int):
     cutoff = time.time() - days * 86400
     files = sorted(LOG_DIR.glob(LOG_GLOB))
@@ -116,6 +138,7 @@ def main() -> None:
     per_ip_scanner = collections.Counter()
     per_ip_total = collections.Counter()
     referrers = collections.Counter()
+    via_cf = 0
 
     buckets = collections.Counter()
     labels = collections.Counter()
@@ -129,13 +152,15 @@ def main() -> None:
         ua = (r.get("request", {}).get("headers", {}).get("User-Agent") or ["-"])[0]
         uri = r.get("request", {}).get("uri", "-")
         bucket, label = classify(ua)
-        client = r.get("request", {}).get("client_ip", "?")
+        client = real_client_ip(r.get("request", {}))
         per_ip_total[client] += 1
         if uri.rstrip("/").lower() in SCANNER_PATHS:
             per_ip_scanner[client] += 1
         referer = (r.get("request", {}).get("headers", {}).get("Referer") or [""])[0]
         if referer and "verifyfirst.dev" not in referer:
             referrers[referer.split("?")[0][:60]] += 1
+        if (r.get("request", {}).get("headers", {}).get("Cf-Ray")):
+            via_cf += 1
         buckets[bucket] += 1
         labels[(bucket, label)] += 1
         paths[uri] += 1
@@ -171,6 +196,10 @@ def main() -> None:
         rows = [(n, f"{b}/{l}") for (b, l), n in labels.items() if b != "ai"]
         for n, l in sorted(rows, reverse=True)[:12]:
             print(f"  {n:>6,}  {l}")
+
+    if via_cf:
+        print(f"\n  {via_cf:,} of {total:,} requests arrived through Cloudflare; "
+              f"client addresses for those come from CF-Connecting-IP")
 
     scanners = {ip for ip, n in per_ip_scanner.items() if n >= 3}
     if scanners:
