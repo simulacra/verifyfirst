@@ -26,7 +26,7 @@ from pathlib import Path
 ENTRY_REQUIRED = [
     "id", "instrument", "title", "class", "false_reading", "true_state",
     "why_blind", "discriminating_check", "cost_of_missing", "generalises_to",
-    "provenance",
+    "provenance", "added",
 ]
 ENTRY_OPTIONAL = ["mitigation", "source", "title_short"]
 
@@ -127,6 +127,9 @@ def check_entry(e: dict, r: Report, instrument_ids: set[str], seen: dict) -> Non
     elif len(e.get("title", "")) > 60:
         r.warn(eid, f"title is {len(e['title'])} chars with no title_short — page "
                     f"titles will be cut")
+
+    if e.get("added") and not re.match(r"^\d{4}-\d{2}-\d{2}$", e["added"]):
+        r.err(eid, "added must be YYYY-MM-DD")
 
     if e.get("title", "").endswith("?"):
         r.warn(eid, "title is a question; entries state the mechanism")

@@ -100,7 +100,8 @@
       "cost_of_missing": "Every visual parameter gets tuned against a frame the animation never advances past. The tuning is not merely useless, it is fitted to an artifact.",
       "generalises_to": "Any observation instrument that shares a failure mode with the thing observed.",
       "provenance": "observed",
-      "title_short": "requestAnimationFrame never fires in headless browsers"
+      "title_short": "requestAnimationFrame never fires in headless browsers",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-002",
@@ -114,7 +115,8 @@
       "cost_of_missing": "Four rounds of visual tuning applied to a layer that was never drawing.",
       "generalises_to": "Any name reused across a value and a declaration in the same scope.",
       "provenance": "observed",
-      "title_short": "A var assignment overwrites a function of the same name"
+      "title_short": "A var assignment overwrites a function of the same name",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-003",
@@ -127,7 +129,8 @@
       "discriminating_check": "getComputedStyle(el).position — the resolved value, never the authored one.",
       "cost_of_missing": "The property is re-declared, re-prefixed and re-tested while the overriding rule stays untouched.",
       "generalises_to": "Any last-writer-wins system: CSS, environment variables, layered configuration, merged dictionaries.",
-      "provenance": "observed"
+      "provenance": "observed",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-004",
@@ -141,7 +144,8 @@
       "cost_of_missing": "Design review proceeds against the wrong typeface. Every judgement about weight, rhythm and scale is made on a substitute.",
       "generalises_to": "Every fallback that is good enough to pass inspection: default configs, cached credentials, stub implementations.",
       "provenance": "observed",
-      "title_short": "A font 404s and falls back to a plausible substitute"
+      "title_short": "A font 404s and falls back to a plausible substitute",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-005",
@@ -154,7 +158,8 @@
       "discriminating_check": "Compare the unit's ExecStart on disk against the live process: systemctl show -p ExecStart NAME and ps -p $MAINPID -o args=",
       "cost_of_missing": "A deploy is reported as complete twice while the previous binary keeps serving.",
       "generalises_to": "Any idempotent-looking command whose semantics differ by current state.",
-      "provenance": "observed"
+      "provenance": "observed",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-006",
@@ -168,7 +173,8 @@
       "cost_of_missing": "Silent substitution. Detected only when two different inputs return the same output.",
       "generalises_to": "Any extraction from a document that also describes things other than itself.",
       "provenance": "observed",
-      "title_short": "Scraping the largest image returns a recommendation"
+      "title_short": "Scraping the largest image returns a recommendation",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-007",
@@ -182,7 +188,8 @@
       "cost_of_missing": "The deploy is repeated, rolled back, or rebuilt to fix a problem that exists only in one cache.",
       "generalises_to": "Any layer that answers on the origin's behalf: CDN, proxy, DNS resolver, memoised client.",
       "provenance": "observed",
-      "title_short": "Heuristic caching hides a deploy from its own author"
+      "title_short": "Heuristic caching hides a deploy from its own author",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-008",
@@ -196,7 +203,8 @@
       "cost_of_missing": "The config is correct on disk and absent from the process, an inconsistency that survives inspection of either side alone.",
       "generalises_to": "Any pipeline where a global check gates a local change.",
       "provenance": "observed",
-      "title_short": "set -e aborts on an unrelated validation step"
+      "title_short": "set -e aborts on an unrelated validation step",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-009",
@@ -209,7 +217,8 @@
       "discriminating_check": "performance.getEntriesByType('resource') — startTime separates 'requested late' from 'transferred slowly'.",
       "cost_of_missing": "Assets get compressed, resized and lazy-loaded, which lowers quality without touching the delay.",
       "generalises_to": "Any queue where wait time is read as service time.",
-      "provenance": "observed"
+      "provenance": "observed",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-010",
@@ -224,7 +233,8 @@
       "mitigation": "Any progressive-enhancement pattern that hides content by default needs a timeout that shows it regardless.",
       "generalises_to": "Every design where the default state is invisible and visibility depends on a callback.",
       "provenance": "observed",
-      "title_short": "Reveal-on-scroll is blank when the observer never fires"
+      "title_short": "Reveal-on-scroll is blank when the observer never fires",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-011",
@@ -239,7 +249,8 @@
       "mitigation": "Cap or close anything spawned per-iteration, and check free memory before adding load rather than after losing work.",
       "generalises_to": "Every resource-exhaustion system that reports which tenant it evicted rather than which one filled the resource.",
       "provenance": "observed",
-      "title_short": "The OOM killer names the victim, not the leak"
+      "title_short": "The OOM killer names the victim, not the leak",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-012",
@@ -252,7 +263,8 @@
       "discriminating_check": "Resolve the PID and compare it against your own: pgrep -f PATTERN | grep -v \"^$$\\$\", or list full command lines with pgrep -af and read them.",
       "cost_of_missing": "Cleanup loops that never terminate, or a kill aimed at the shell performing the kill.",
       "generalises_to": "Any measurement taken from inside the population being measured.",
-      "provenance": "observed"
+      "provenance": "observed",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-013",
@@ -266,7 +278,8 @@
       "cost_of_missing": "Work in progress across every session in the environment, lost with no diagnostic trail.",
       "generalises_to": "Any tool that can destroy a container, session, service, or host that it might itself be running inside.",
       "provenance": "observed",
-      "title_short": "A teardown script destroys its own environment"
+      "title_short": "A teardown script destroys its own environment",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-014",
@@ -281,7 +294,8 @@
       "mitigation": "Wrap anything that might prompt in a timeout, so a hang converts into a failure you can observe.",
       "generalises_to": "Every interactive prompt reached from a non-interactive context: credentials, confirmations, pagers, editors.",
       "provenance": "observed",
-      "title_short": "A privilege prompt with no terminal hangs forever"
+      "title_short": "A privilege prompt with no terminal hangs forever",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-015",
@@ -297,7 +311,8 @@
       "generalises_to": "Any composition that collapses several results into one and keeps the last rather than the worst.",
       "source": "https://www.gnu.org/software/bash/manual/bash.html#Pipelines",
       "provenance": "documented",
-      "title_short": "A pipeline returns the last command's exit status"
+      "title_short": "A pipeline returns the last command's exit status",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-016",
@@ -311,7 +326,8 @@
       "cost_of_missing": "A downstream step parses an HTML error page as the config, dataset or credential file it expected. The failure surfaces at the parser, far from the request that caused it.",
       "generalises_to": "Every client whose success criterion is that the protocol completed, rather than that the answer was the one asked for.",
       "source": "https://curl.se/docs/manpage.html#-f",
-      "provenance": "documented"
+      "provenance": "documented",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-017",
@@ -326,7 +342,8 @@
       "generalises_to": "Any convention-driven runner where registration is implicit and non-registration is silent: test discovery, plugin loaders, autoloaded fixtures, route decorators.",
       "source": "https://docs.pytest.org/en/stable/explanation/goodpractices.html#conventions-for-python-test-discovery",
       "provenance": "documented",
-      "title_short": "A misnamed test is neither run nor reported"
+      "title_short": "A misnamed test is neither run nor reported",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-018",
@@ -341,7 +358,8 @@
       "generalises_to": "Every test double whose surface is invented rather than derived from the thing it replaces.",
       "source": "https://docs.python.org/3/library/unittest.mock.html#autospeccing",
       "provenance": "documented",
-      "title_short": "A bare mock answers to methods that no longer exist"
+      "title_short": "A bare mock answers to methods that no longer exist",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-019",
@@ -357,7 +375,8 @@
       "generalises_to": "Any writer that repairs input rather than rejecting it: lenient parsers, schema-on-read stores, spreadsheet imports.",
       "source": "https://dev.mysql.com/doc/refman/8.4/en/sql-mode.html#sql-mode-strict",
       "provenance": "documented",
-      "title_short": "MySQL outside strict mode silently adjusts your value"
+      "title_short": "MySQL outside strict mode silently adjusts your value",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-020",
@@ -371,7 +390,8 @@
       "cost_of_missing": "An upload pipeline records success for an object that does not exist. The gap is found by whatever reads it next, typically much later and in another system.",
       "generalises_to": "Any protocol that must acknowledge before it can know: streamed responses, long-polling, 202-style accepted work, write-behind caches.",
       "source": "https://docs.aws.amazon.com/AmazonS3/latest/API/API_CompleteMultipartUpload.html",
-      "provenance": "documented"
+      "provenance": "documented",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-021",
@@ -386,7 +406,8 @@
       "generalises_to": "Every bulk endpoint that reports transport success while carrying per-item failure in its payload.",
       "source": "https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_BatchWriteItem.html",
       "provenance": "documented",
-      "title_short": "A batch write returns 200 with unprocessed items"
+      "title_short": "A batch write returns 200 with unprocessed items",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-022",
@@ -401,7 +422,8 @@
       "generalises_to": "Any fallback that answers on behalf of everything unmatched: wildcard DNS, default vhosts, permissive proxy routes.",
       "source": "https://developers.google.com/search/docs/crawling-indexing/javascript/fix-search-javascript",
       "provenance": "documented",
-      "title_short": "An SPA catch-all returns 200 for URLs that do not exist"
+      "title_short": "An SPA catch-all returns 200 for URLs that do not exist",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-023",
@@ -416,7 +438,8 @@
       "generalises_to": "Every first-wins configuration system, which fails in exactly the opposite direction to the last-wins ones and therefore defeats the habit built on them.",
       "source": "https://man.openbsd.org/sshd_config.5",
       "provenance": "documented",
-      "title_short": "sshd takes the first value for a keyword, not the last"
+      "title_short": "sshd takes the first value for a keyword, not the last",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-024",
@@ -432,7 +455,8 @@
       "generalises_to": "Any check performed on a rendering of an artifact rather than on its bytes.",
       "source": "https://trojansource.codes/",
       "provenance": "documented",
-      "title_short": "Bidi characters make source read unlike it compiles"
+      "title_short": "Bidi characters make source read unlike it compiles",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-025",
@@ -448,7 +472,8 @@
       "generalises_to": "Every boundary between systems with different numeric ranges: 64-bit ids into doubles, timestamps into 32-bit seconds, decimals into floats.",
       "source": "https://www.rfc-editor.org/rfc/rfc8259#section-6",
       "provenance": "documented",
-      "title_short": "A JSON integer above 2^53 is silently rounded"
+      "title_short": "A JSON integer above 2^53 is silently rounded",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-026",
@@ -464,7 +489,8 @@
       "generalises_to": "Every start-up API that acknowledges the request rather than the readiness.",
       "source": "https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html#Type=",
       "provenance": "documented",
-      "title_short": "systemd reports active before the binary has executed"
+      "title_short": "systemd reports active before the binary has executed",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-027",
@@ -479,7 +505,8 @@
       "generalises_to": "Every supervised process where the supervisor's diligence in restarting is read as the process's success in running.",
       "source": "https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html#Restart=",
       "provenance": "documented",
-      "title_short": "A crash-looping service reads as active between crashes"
+      "title_short": "A crash-looping service reads as active between crashes",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-028",
@@ -495,7 +522,8 @@
       "generalises_to": "Any handle held across a rename or delete: log files, config files watched by path, unlinked sockets and temp files.",
       "source": "https://man7.org/linux/man-pages/man8/logrotate.8.html",
       "provenance": "documented",
-      "title_short": "A rotated log leaves the daemon writing to no name"
+      "title_short": "A rotated log leaves the daemon writing to no name",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-029",
@@ -510,7 +538,8 @@
       "generalises_to": "Every level-filtered or sampled telemetry channel, where the absence of a line is read as the absence of an event.",
       "source": "https://docs.python.org/3/howto/logging.html#what-happens-if-no-configuration-is-provided",
       "provenance": "documented",
-      "title_short": "Python drops records below WARNING by default"
+      "title_short": "Python drops records below WARNING by default",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-030",
@@ -525,7 +554,8 @@
       "generalises_to": "Any interaction verified by appearance rather than by the effect the interaction was supposed to have.",
       "source": "https://www.w3.org/TR/webdriver2/#errors",
       "provenance": "documented",
-      "title_short": "A transparent overlay takes the click you can see land"
+      "title_short": "A transparent overlay takes the click you can see land",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-031",
@@ -541,7 +571,8 @@
       "mitigation": "Anything whose log will be read after an abnormal death should be unbuffered at the point of writing; adding it at the point of reading is too late.",
       "generalises_to": "Every buffered channel inspected after an abrupt stop: stdio, log shippers with in-memory queues, metrics flushed on a timer, traces batched before export.",
       "source": "https://docs.python.org/3/library/sys.html#sys.stdout",
-      "provenance": "documented"
+      "provenance": "documented",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-032",
@@ -557,7 +588,8 @@
       "mitigation": "LogRateLimitIntervalSec= and LogRateLimitBurst= can be raised per unit, but a service logging at that rate needs to log less rather than louder.",
       "generalises_to": "Every sampled or throttled telemetry path: metrics agents, trace sampling, syslog rate limits, ingestion quotas in hosted log services.",
       "source": "https://man7.org/linux/man-pages/man5/journald.conf.5.html",
-      "provenance": "documented"
+      "provenance": "documented",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-033",
@@ -572,7 +604,8 @@
       "cost_of_missing": "Missing lines are attributed to unreached code, and the debugging effort goes into the application instead of into the two lines of logging setup that declined to apply.",
       "generalises_to": "Every initialiser that is idempotent by doing nothing: first-wins registries, singleton bootstrappers, setup functions that check for prior state and return quietly.",
       "source": "https://docs.python.org/3/library/logging.html#logging.basicConfig",
-      "provenance": "documented"
+      "provenance": "documented",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-034",
@@ -588,7 +621,8 @@
       "mitigation": "Route stderr to the same destination as the log, so the logging subsystem's own failures land beside the records they replaced.",
       "generalises_to": "Every subsystem asked to report on itself: monitoring agents that cannot alert on their own death, error trackers that drop malformed events, audit logs that fail open.",
       "source": "https://docs.python.org/3/library/logging.html#logging.Handler.handleError",
-      "provenance": "documented"
+      "provenance": "documented",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-035",
@@ -604,7 +638,8 @@
       "mitigation": "Timestamp at the point of emission, so ordering does not depend on arrival, and keep the two streams separate when their relative order carries meaning.",
       "generalises_to": "Any merge of independently buffered sources into one ordered view: multi-process logs, distributed traces without synchronised clocks, tail -f across several files.",
       "source": "https://man7.org/linux/man-pages/man3/stdio.3.html",
-      "provenance": "documented"
+      "provenance": "documented",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-036",
@@ -619,7 +654,8 @@
       "cost_of_missing": "A shutdown loop waits forever on a process that has already exited, or a supervisor counting instances by name refuses to start the replacement it should have started.",
       "generalises_to": "Every registry where deregistration is a third party's responsibility: service discovery entries, connection pool slots, lock rows, task records whose owner died.",
       "source": "https://man7.org/linux/man-pages/man1/ps.1.html",
-      "provenance": "documented"
+      "provenance": "documented",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-037",
@@ -634,7 +670,8 @@
       "cost_of_missing": "A health check built on is-active passes for a service that finished minutes ago, and would keep passing if its binary were deleted afterwards. Restart= never fires either, because the unit is not running to fail.",
       "generalises_to": "Every status vocabulary where one token spans 'in progress' and 'finished': job schedulers, CI stages, container states, queue workers reported as healthy.",
       "source": "https://man7.org/linux/man-pages/man5/systemd.service.5.html",
-      "provenance": "documented"
+      "provenance": "documented",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-038",
@@ -650,7 +687,8 @@
       "mitigation": "`lsof +L1`, or `ls -l /proc/*/exe 2>/dev/null | grep deleted`, names every process still on an old image; needrestart does this after apt on Debian and Ubuntu.",
       "generalises_to": "Any consumer that resolves a resource once and holds it: loaded shared libraries, opened config files, cached DNS answers, imported modules.",
       "source": "https://man7.org/linux/man-pages/man5/proc_pid_exe.5.html",
-      "provenance": "documented"
+      "provenance": "documented",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-039",
@@ -666,7 +704,8 @@
       "mitigation": "`exec` as the last line of a wrapper replaces the shell instead of forking, so the name and the worker are one process; systemd's default control-group-based KillMode stops the whole tree rather than the named process.",
       "generalises_to": "Every process tree observed as a flat list: container entrypoints, npm and make targets, virtualenv shims, ssh command wrappers.",
       "source": "https://www.gnu.org/software/bash/manual/bash.html#Bourne-Shell-Builtins",
-      "provenance": "documented"
+      "provenance": "documented",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-040",
@@ -681,7 +720,8 @@
       "cost_of_missing": "A guard that starts the service when the check fails starts a second copy of something already running: two writers on one database, two schedulers on one queue, each verified as absent immediately beforehand.",
       "generalises_to": "Every lookup key silently normalised before comparison: truncated identifiers, case-folded names, unicode-normalised paths, hostnames cut at a label boundary.",
       "source": "https://man7.org/linux/man-pages/man1/pgrep.1.html",
-      "provenance": "documented"
+      "provenance": "documented",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-041",
@@ -696,7 +736,8 @@
       "cost_of_missing": "Resource accounting done inside a container attributes to itself memory the host is losing elsewhere, and a kill or restart aimed at a PID from the other view lands on whatever holds that number there.",
       "generalises_to": "Every identifier unique only within a scope the output does not name: container PIDs, per-tenant row ids, per-session handles, relative paths.",
       "source": "https://man7.org/linux/man-pages/man7/pid_namespaces.7.html",
-      "provenance": "documented"
+      "provenance": "documented",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-042",
@@ -711,7 +752,8 @@
       "cost_of_missing": "A truncated CSV, NDJSON or log export is syntactically valid and merely shorter, so it loads without complaint and the missing records are indistinguishable from records that never existed.",
       "generalises_to": "Every protocol that commits to a status before the payload is complete, and every consumer that validates syntax instead of completeness.",
       "source": "https://www.rfc-editor.org/rfc/rfc9112#section-8",
-      "provenance": "documented"
+      "provenance": "documented",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-043",
@@ -726,7 +768,8 @@
       "cost_of_missing": "Uptime monitors, link checkers and post-deploy smoke tests built on -I stay green throughout an outage every real request is experiencing.",
       "generalises_to": "Every cheap probe standing in for the operation being assured: a TCP connect for a request, a ping for a service, a dry run for a run.",
       "source": "https://www.rfc-editor.org/rfc/rfc9110#name-head",
-      "provenance": "documented"
+      "provenance": "documented",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-044",
@@ -741,7 +784,8 @@
       "cost_of_missing": "An access-control change is signed off against a response that was never authenticated. The converse is worse: the same mechanism makes a broken authentication path look like a working one.",
       "generalises_to": "Every hop that rewrites a request: proxies stripping headers, SDK retries losing context, message buses dropping attributes.",
       "source": "https://curl.se/docs/manpage.html#--location-trusted",
-      "provenance": "documented"
+      "provenance": "documented",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-045",
@@ -756,7 +800,8 @@
       "cost_of_missing": "A pipeline stores the null as a real value. The failure surfaces later as missing data, far from the query, with a 200 in the access log at the point where it actually went wrong.",
       "generalises_to": "Every API carrying per-operation outcome in the body: JSON-RPC, batch endpoints, SOAP faults, webhook receivers that acknowledge before processing.",
       "source": "https://graphql.github.io/graphql-over-http/draft/",
-      "provenance": "documented"
+      "provenance": "documented",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-046",
@@ -772,7 +817,8 @@
       "mitigation": "Quote every scalar whose type matters. Loaders following the YAML 1.2 core schema resolve fewer of these, which changes the set of surprises rather than removing it.",
       "generalises_to": "Every format that infers type from spelling: spreadsheet imports turning identifiers into dates, shell word-splitting, environment variables parsed as numbers.",
       "source": "https://yaml.org/type/bool.html",
-      "provenance": "documented"
+      "provenance": "documented",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-047",
@@ -787,7 +833,8 @@
       "cost_of_missing": "The backup, the mirror or the deploy artefact is missing a subtree that every local check confirms is present. It is discovered on a clean clone, usually on another machine, usually once the original is gone.",
       "generalises_to": "Every container that stores a reference where the reader assumes contents: symlinks inside archives, submodule pointers, lockfiles naming versions that no longer resolve.",
       "source": "https://git-scm.com/docs/gitsubmodules",
-      "provenance": "documented"
+      "provenance": "documented",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-048",
@@ -802,7 +849,8 @@
       "cost_of_missing": "Edits accumulate in a file the program has never loaded, and the conclusion drawn concerns caching or process lifetime rather than identity, sending the work into restarts and clearing __pycache__.",
       "generalises_to": "Every ordered resolution path where names are not unique: PATH, LD_LIBRARY_PATH, node_modules resolution, classpath, include directories.",
       "source": "https://docs.python.org/3/tutorial/modules.html#the-module-search-path",
-      "provenance": "documented"
+      "provenance": "documented",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-049",
@@ -818,7 +866,8 @@
       "generalises_to": "Any measurement taken in one unit system and spent in another: viewport against document coordinates, physical against logical resolution, bytes against characters.",
       "source": "https://www.w3.org/TR/cssom-view-1/#dom-window-devicepixelratio",
       "provenance": "documented",
-      "title_short": "A screenshot's pixels are not the page's pixels"
+      "title_short": "A screenshot's pixels are not the page's pixels",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-050",
@@ -833,7 +882,8 @@
       "generalises_to": "Any render whose conditions are chosen by the renderer rather than the document: print media, forced colours, reduced motion, emulated devices.",
       "source": "https://pptr.dev/api/puppeteer.page.pdf",
       "provenance": "documented",
-      "title_short": "A PDF capture applies the print stylesheet"
+      "title_short": "A PDF capture applies the print stylesheet",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-051",
@@ -848,7 +898,8 @@
       "generalises_to": "Every conditional whose condition is supplied by the environment: feature flags defaulting off, locale-dependent formatting, reduced-motion and forced-colours branches.",
       "source": "https://drafts.csswg.org/mediaqueries-5/#prefers-color-scheme",
       "provenance": "documented",
-      "title_short": "Headless renders only the light colour scheme"
+      "title_short": "Headless renders only the light colour scheme",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-052",
@@ -864,7 +915,8 @@
       "generalises_to": "Every designed representation of absence: empty tables, zero counts, blank dashboards, 'no alerts' panels.",
       "source": "https://html.spec.whatwg.org/multipage/parsing.html#the-end",
       "provenance": "documented",
-      "title_short": "The load event fires before fetched data arrives"
+      "title_short": "The load event fires before fetched data arrives",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-053",
@@ -879,7 +931,8 @@
       "generalises_to": "Every aggregator that reduces many statuses to one: parallel test runners, job schedulers, batch APIs, fan-out without per-item bookkeeping.",
       "source": "https://www.gnu.org/software/bash/manual/bash.html#Job-Control-Builtins",
       "provenance": "documented",
-      "title_short": "Bare wait returns zero whatever the children did"
+      "title_short": "Bare wait returns zero whatever the children did",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-054",
@@ -895,7 +948,8 @@
       "generalises_to": "Every operation that opens its destination before reading its source: in-place archive rewrites, dumps piped over their own file, copies where source and destination alias.",
       "source": "https://www.gnu.org/software/bash/manual/bash.html#Redirections",
       "provenance": "documented",
-      "title_short": "Redirecting a command's output into its own input"
+      "title_short": "Redirecting a command's output into its own input",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-055",
@@ -910,7 +964,8 @@
       "generalises_to": "Every dispatcher whose status covers dispatch rather than outcome: cron wrappers, CI steps that shell out, message producers acknowledged on enqueue.",
       "source": "https://man7.org/linux/man-pages/man1/find.1.html",
       "provenance": "documented",
-      "title_short": "find's exit status ignores what -exec returned"
+      "title_short": "find's exit status ignores what -exec returned",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-056",
@@ -925,7 +980,8 @@
       "generalises_to": "Every copy whose destination semantics depend on a trailing character or on whether the target already exists: cp, scp, docker COPY, object-storage prefixes.",
       "source": "https://man7.org/linux/man-pages/man1/rsync.1.html",
       "provenance": "documented",
-      "title_short": "rsync without a trailing slash nests the source"
+      "title_short": "rsync without a trailing slash nests the source",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-057",
@@ -941,7 +997,8 @@
       "generalises_to": "Every transport-level transformation the receiver must undo: content-encoding, transfer-encoding, base64 envelopes, client-side decryption.",
       "source": "https://curl.se/docs/manpage.html#--compressed",
       "provenance": "documented",
-      "title_short": "A gzip body saved without being decompressed"
+      "title_short": "A gzip body saved without being decompressed",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-058",
@@ -957,7 +1014,8 @@
       "generalises_to": "Every layer that may answer on another's behalf: CDNs, reverse proxies, resolvers, package mirrors, SDK-level response caches.",
       "source": "https://www.rfc-editor.org/rfc/rfc9111#section-5.1",
       "provenance": "documented",
-      "title_short": "A 200 carrying an Age header came from a cache"
+      "title_short": "A 200 carrying an Age header came from a cache",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-059",
@@ -972,7 +1030,8 @@
       "generalises_to": "Any probe issued from inside the system it measures: internal health checks, same-network monitoring, tests that resolve names through a private zone.",
       "source": "https://curl.se/docs/manpage.html#-w",
       "provenance": "documented",
-      "title_short": "A probe from the origin skips the public path"
+      "title_short": "A probe from the origin skips the public path",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-060",
@@ -987,7 +1046,8 @@
       "generalises_to": "Every filter applied before a report is produced: exclude rules in backups and syncs, packaging manifests, .dockerignore, test collection patterns.",
       "source": "https://git-scm.com/docs/git-add",
       "provenance": "documented",
-      "title_short": "git add silently skips ignored files"
+      "title_short": "git add silently skips ignored files",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-061",
@@ -1003,7 +1063,8 @@
       "generalises_to": "Every character that renders as nothing: byte-order marks, zero-width spaces, non-breaking spaces pasted from documents, trailing whitespace in secrets.",
       "source": "https://git-scm.com/docs/gitattributes",
       "provenance": "documented",
-      "title_short": "CRLF makes two readers see different values"
+      "title_short": "CRLF makes two readers see different values",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-062",
@@ -1019,7 +1080,8 @@
       "generalises_to": "Every duplication that may preserve a reference instead of the data: hard links, copy-on-write clones, container image layers, object-store copies that alias.",
       "source": "https://www.gnu.org/software/coreutils/manual/html_node/cp-invocation.html",
       "provenance": "documented",
-      "title_short": "cp -a copies the link, not the file behind it"
+      "title_short": "cp -a copies the link, not the file behind it",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-063",
@@ -1034,7 +1096,8 @@
       "generalises_to": "Every constraint enforced at a layer the inspection tool does not model: cgroup CPU quota against nproc, container disk quotas against df, API rate limits against local concurrency settings.",
       "source": "https://docs.kernel.org/admin-guide/cgroup-v2.html",
       "provenance": "documented",
-      "title_short": "free shows host memory, not the cgroup limit"
+      "title_short": "free shows host memory, not the cgroup limit",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-064",
@@ -1049,7 +1112,8 @@
       "generalises_to": "Every aggregate that sums dissimilar states: queue depth mixing retries with new work, request counts mixing served with rejected, connection counts including half-open ones.",
       "source": "https://man7.org/linux/man-pages/man5/proc_loadavg.5.html",
       "provenance": "documented",
-      "title_short": "Load average counts I/O waits as running work"
+      "title_short": "Load average counts I/O waits as running work",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-065",
@@ -1065,7 +1129,8 @@
       "generalises_to": "Every statistic whose window is implicit: lifetime averages, cumulative counters presented as gauges, uptime-normalised error rates.",
       "source": "https://man7.org/linux/man-pages/man1/ps.1.html",
       "provenance": "documented",
-      "title_short": "ps %CPU averages over the whole process life"
+      "title_short": "ps %CPU averages over the whole process life",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-066",
@@ -1080,7 +1145,8 @@
       "generalises_to": "Any capture configured to watch one channel while the interesting events use another: stderr against stdout, structured logs against panics, application logs against the supervisor's.",
       "source": "https://www.gnu.org/software/bash/manual/bash.html#Redirections",
       "provenance": "documented",
-      "title_short": "2>&1 before > sends errors somewhere else"
+      "title_short": "2>&1 before > sends errors somewhere else",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-067",
@@ -1096,7 +1162,8 @@
       "generalises_to": "Every field assigned by a collector rather than by the source: levels inferred by a log shipper, statuses rewritten by a proxy, timestamps stamped at ingestion.",
       "source": "https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#SyslogLevel=",
       "provenance": "documented",
-      "title_short": "Service stdout is journalled at info, not error"
+      "title_short": "Service stdout is journalled at info, not error",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-068",
@@ -1112,7 +1179,8 @@
       "generalises_to": "Every store whose retention is shorter than the investigation: ring buffers, in-memory metrics, container logs removed with the container, tmpfs working directories.",
       "source": "https://www.freedesktop.org/software/systemd/man/latest/journald.conf.html#Storage=",
       "provenance": "documented",
-      "title_short": "A volatile journal loses the logs at reboot"
+      "title_short": "A volatile journal loses the logs at reboot",
+      "added": "2026-08-23"
     },
     {
       "id": "NS-069",
@@ -1127,7 +1195,8 @@
       "mitigation": "Treat the user-agent as one weak signal among several. Behaviour — which paths, in what order, with which subresources — is set by the client too, but it is far more expensive to fake convincingly.",
       "generalises_to": "Any metric derived from a field the measured party supplies: referrers, self-reported versions, declared content types, client-side analytics events.",
       "provenance": "observed",
-      "title_short": "User-agent counts claims, not clients"
+      "title_short": "User-agent counts claims, not clients",
+      "added": "2026-08-23"
     }
   ],
   "principles": [

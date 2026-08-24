@@ -80,6 +80,20 @@ verifyfirst.dev, www.verifyfirst.dev {
 	header Cache-Control "public, max-age=300, must-revalidate"
 	header X-Content-Type-Options nosniff
 
+	# Aggregators ask for /feed and /rss; MCP directory crawlers ask for /docs
+	# and /about before anything else. All observed in the access log within
+	# hours of launch. Point them somewhere real rather than at a 404.
+	redir /feed        /feed.xml permanent
+	redir /feed/       /feed.xml permanent
+	redir /rss         /feed.xml permanent
+	redir /rss.xml     /feed.xml permanent
+	redir /atom.xml    /feed.xml permanent
+	redir /docs        /recipes/ permanent
+	redir /docs/       /recipes/ permanent
+	redir /documentation /recipes/ permanent
+	redir /about       / permanent
+	redir /api         /registry.json permanent
+
 	# URLs arrive with prose punctuation stuck to them — the access log showed
 	# five hits on "/registry.json," within a day of launch. A model quoting a
 	# URL mid-sentence produces exactly that. Redirect instead of 404ing.

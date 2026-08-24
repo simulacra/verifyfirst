@@ -245,6 +245,7 @@ def shell(title: str, desc: str, body: str, canonical: str, narrow: bool = False
 <title>{E(title)}</title>
 <meta name="description" content="{E(desc)}">
 <link rel="canonical" href="{E(canonical)}">
+<link rel="alternate" type="application/atom+xml" title="verifyfirst — new entries" href="/feed.xml">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -695,6 +696,42 @@ conclusion. Prefer resolved values over authored ones.</pre>
         "Python stdlib only, no dependencies.",
         mcp_body, f"{BASE}/mcp/", narrow=True), encoding="utf-8")
     urls.append(f"{BASE}/mcp/")
+
+    # --- feed ---------------------------------------------------------------
+    # Aggregators and directory crawlers asked for /feed and /rss within hours
+    # of launch. Atom rather than RSS because its date handling is unambiguous.
+    def _rfc3339(day: str) -> str:
+        return f"{day}T00:00:00Z"
+
+    newest = sorted(ENTRIES, key=lambda e: (e.get("added", ""), e["id"]), reverse=True)[:40]
+    feed_updated = _rfc3339(max(e.get("added", DATA["updated"]) for e in ENTRIES))
+    items = []
+    for e in newest:
+        inst = next(i for i in INSTRUMENTS if i["id"] == e["instrument"])
+        summary = (f"{e['false_reading']}\n\nActually: {e['true_state']}\n\n"
+                   f"Check: {e['discriminating_check']}\n\n"
+                   f"Instrument: {inst['name']} ({e['instrument']}). "
+                   f"Provenance: {e.get('provenance','')}.")
+        items.append(f"""  <entry>
+    <title>{E(e.get('title_short') or e['title'])}</title>
+    <link href="{BASE}/e/{E(e['id'])}/"/>
+    <id>tag:verifyfirst.dev,2026:{E(e['id'])}</id>
+    <updated>{_rfc3339(e.get('added', DATA['updated']))}</updated>
+    <category term="{E(e['instrument'])}"/>
+    <summary type="text">{E(summary)}</summary>
+  </entry>""")
+    (OUT / "feed.xml").write_text(
+        '<?xml version="1.0" encoding="utf-8"?>\n'
+        '<feed xmlns="http://www.w3.org/2005/Atom">\n'
+        f'  <title>verifyfirst — failures that report success</title>\n'
+        f'  <subtitle>{E(DATA["premise"][:180])}</subtitle>\n'
+        f'  <link href="{BASE}/feed.xml" rel="self"/>\n'
+        f'  <link href="{BASE}/"/>\n'
+        f'  <id>tag:verifyfirst.dev,2026:registry</id>\n'
+        f'  <updated>{feed_updated}</updated>\n'
+        f'  <author><name>Zion Labs</name><uri>https://zionlabs.io</uri></author>\n'
+        f'  <rights>CC0-1.0</rights>\n'
+        + "\n".join(items) + "\n</feed>\n", encoding="utf-8")
 
     # --- machine formats -----------------------------------------------------
     (OUT / "registry.json").write_text(json.dumps(DATA, indent=2, ensure_ascii=False), encoding="utf-8")
