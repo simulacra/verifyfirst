@@ -56,6 +56,7 @@ INSTRUMENTS = DATA["instruments"]
 ENTRIES = DATA["entries"]
 SYMPTOMS = DATA.get("symptoms", [])
 RECIPES = DATA.get("recipes", [])
+LIMITS = DATA.get("limits", {})
 BY_ID = {e["id"]: e for e in DATA["entries"]}
 BY_INSTRUMENT = {i["id"]: [e for e in ENTRIES if e["instrument"] == i["id"]] for i in INSTRUMENTS}
 
@@ -125,7 +126,7 @@ p{margin:0 0 1rem}
    as an absence: hatched fill, nothing printed on it, a hairline edge. The
    page shows the shape of the gap rather than describing it. */
 .blind{list-style:none;margin:0 0 1.4rem;padding:0;display:grid;gap:.55rem}
-.blind li{position:relative;border:1px solid var(--rule);padding:.7rem .85rem .7rem 2.4rem;
+.blind .what{display:block;font-weight:600;margin-bottom:.3rem;color:var(--ink)}\n.blind li{position:relative;border:1px solid var(--rule);padding:.7rem .85rem .7rem 2.4rem;
   background:
     repeating-linear-gradient(135deg,
       rgba(228,131,91,.055) 0 6px, rgba(0,0,0,0) 6px 12px);
@@ -269,6 +270,7 @@ def shell(title: str, desc: str, body: str, canonical: str, narrow: bool = False
       <a href="/protocol/">protocol</a>
       <a href="/mcp/">mcp</a>
       <a href="/llms.txt">llms.txt</a>
+      <a href="/limits/">limits</a>
       <a href="{REPO}">github</a>
     </nav>
   </div>
@@ -440,6 +442,12 @@ curl {E(BASE.replace('https://',''))}/all.txt          # the whole registry, one
     <ol class="pr">
 {principles}
     </ol>
+
+  <h2>What this cannot see</h2>
+  <p class="note">This reference has its own blind spots: it is Unix- and web-heavy,
+     the checks were reproduced on one machine, and an entry only exists because
+     somebody eventually noticed the failure. Failures nobody has ever caught are,
+     by construction, absent. <a href="/limits/">The full statement</a>.</p>
 
   <h2>Formats</h2>
   <p class="formats">
@@ -733,12 +741,57 @@ conclusion. Prefer resolved values over authored ones.</pre>
         f'  <rights>CC0-1.0</rights>\n'
         + "\n".join(items) + "\n</feed>\n", encoding="utf-8")
 
+    # --- limits --------------------------------------------------------------
+    if LIMITS:
+        oos = "".join(
+            f'      <li><span class="what">{E(x["what"])}</span>{E(x["why"])}</li>'
+            for x in LIMITS["out_of_scope"])
+        bias = "".join(
+            f'      <li><span class="what">{E(x["what"])}</span>{E(x["detail"])}</li>'
+            for x in LIMITS["known_bias"])
+        lim_body = f"""  <h1>What this cannot see</h1>
+  <p class="lede">{E(LIMITS['premise'])}</p>
+
+  <h2>Out of scope</h2>
+    <ul class="blind">
+{oos}
+    </ul>
+
+  <h2>Known bias</h2>
+    <ul class="blind">
+{bias}
+    </ul>
+
+  <h2>Correcting it</h2>
+  <p class="note">{E(LIMITS['how_to_correct'])}</p>"""
+        d2 = OUT / "limits"
+        d2.mkdir(exist_ok=True)
+        (d2 / "index.html").write_text(shell(
+            "What this registry cannot see | verifyfirst",
+            "The scope this reference does not cover, and the bias in what it does: "
+            "Unix-heavy sources, one machine, and only failures somebody noticed.",
+            lim_body, f"{BASE}/limits/", narrow=True), encoding="utf-8")
+        urls.append(f"{BASE}/limits/")
+
+        lim_txt = ["VERIFYFIRST // limits", LIMITS["premise"], "", "OUT OF SCOPE"]
+        for x in LIMITS["out_of_scope"]:
+            lim_txt += [f"  - {x['what']}", f"    {x['why']}"]
+        lim_txt += ["", "KNOWN BIAS"]
+        for x in LIMITS["known_bias"]:
+            lim_txt += [f"  - {x['what']}", f"    {x['detail']}"]
+        lim_txt += ["", LIMITS["how_to_correct"], ""]
+        (OUT / "limits.txt").write_text("\n".join(lim_txt), encoding="utf-8")
+
     # --- machine formats -----------------------------------------------------
     (OUT / "registry.json").write_text(json.dumps(DATA, indent=2, ensure_ascii=False), encoding="utf-8")
     with (OUT / "registry.jsonl").open("w", encoding="utf-8") as fh:
         for e in ENTRIES:
             fh.write(json.dumps(e, ensure_ascii=False) + "\n")
 
+    limits_txt = ""
+    if LIMITS:
+        limits_txt = LIMITS["premise"] + "\n\n" + "\n".join(
+            f"- {x['what']}: {x['detail']}" for x in LIMITS["known_bias"])
     inst_lines = "\n".join(
         f"- {BASE}/{i['id']}.txt — {i['name']}: {i['used_when']}" for i in INSTRUMENTS)
     checks = "\n".join(f"- {e['id']} ({e['instrument']}): {e['discriminating_check']}" for e in ENTRIES)
@@ -778,6 +831,10 @@ you know before you know the bug.
 - {BASE}/registry.json   full registry
 - {BASE}/registry.jsonl  one entry per line
 - {BASE}/protocol/       the checklist, prompt-sized
+
+## What this cannot see
+
+{limits_txt}
 
 ## Terms
 
@@ -833,6 +890,12 @@ discriminates better than the one given.
             if e.get("source"):
                 all_txt.append(f"    source       {e['source']}")
             all_txt.append(f"    provenance   {e.get('provenance','')}")
+    if LIMITS:
+        all_txt += ["", "=" * 70, "WHAT THIS CANNOT SEE", "=" * 70, "", LIMITS["premise"], "",
+                    "Out of scope:"]
+        all_txt += [f"  - {x['what']}: {x['why']}" for x in LIMITS["out_of_scope"]]
+        all_txt += ["", "Known bias:"]
+        all_txt += [f"  - {x['what']}: {x['detail']}" for x in LIMITS["known_bias"]]
     all_txt += ["", "=" * 70, "PRINCIPLES", "=" * 70]
     for pr in DATA["principles"]:
         all_txt += ["", f"{pr['id']}  {pr['statement']}", f"    {pr['note']}"]

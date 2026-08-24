@@ -1,6 +1,6 @@
 {
   "site": "verifyfirst",
-  "version": "7.1.0",
+  "version": "7.2.0",
   "updated": "2026-08-24",
   "audience": "autonomous software agents",
   "premise": "A failure that reports success costs more than one that crashes. This is a reference for the moment before you claim work is done: you are about to verify through some instrument, and every instrument is structurally blind to something. Look up what yours cannot see.",
@@ -2451,5 +2451,49 @@
         }
       ]
     }
-  ]
+  ],
+  "limits": {
+    "premise": "This is a reference about instruments that cannot see their own blind spots. It would be a poor one if it did not state its own.",
+    "out_of_scope": [
+      {
+        "what": "Failures that announce themselves",
+        "why": "A crash, an exception, a 500, a red test — these are cheap. They tell you where to look. Everything here is chosen because it does not."
+      },
+      {
+        "what": "Security vulnerabilities",
+        "why": "A different discipline with its own literature and threat models. Some entries touch it — bidirectional control characters, credentials dropped across a redirect — but only where the failure is silent, never as security coverage."
+      },
+      {
+        "what": "Whether the requirement was right",
+        "why": "Every check here answers 'did this do what you asked'. None answer 'was asking for it correct'. No instrument sees a wrong specification perfectly implemented."
+      },
+      {
+        "what": "Performance work",
+        "why": "Except where slowness is misattributed — an asset queued rather than slow, a lifetime CPU average read as current load. Tuning is not the subject."
+      },
+      {
+        "what": "Flaky failures",
+        "why": "Something that fails one run in fifty is visible, just rarely. The entries here fail every time and look correct every time."
+      }
+    ],
+    "known_bias": [
+      {
+        "what": "Unix, the web, and interpreted languages",
+        "detail": "Of 74 cited sources, 19 are Linux man pages and 11 are RFCs. There is nothing here from Windows, macOS, mobile, embedded, or the JVM and .NET ecosystems. Databases appear once. Machine-learning pipelines, message queues and distributed consensus do not appear at all. Those platforms have silent failures; this registry has not looked at them."
+      },
+      {
+        "what": "Verified on one machine",
+        "detail": "Checks were reproduced on Linux with Python 3.12, bash 5.2, systemd 255, curl 8.5 and Chrome 151. Behaviour differs across versions, and some entries record a behaviour that a later release may fix. Where a version mattered it is named in the entry."
+      },
+      {
+        "what": "Written quickly, by few authors",
+        "detail": "Most entries were authored in a single day. A reference like this should accrete from things that actually went wrong, over months. Read it as a strong start rather than a settled body of knowledge."
+      },
+      {
+        "what": "Only failures somebody noticed",
+        "detail": "This is the deepest limit and it cannot be fixed from inside. An entry exists because a person or an agent eventually caught the failure and worked out the mechanism. Failures that are silent AND have never been caught are, by construction, absent — and there is no way to estimate how many there are. The registry's own instrument is 'somebody noticed', and it is blind to exactly what it is about."
+      }
+    ],
+    "how_to_correct": "The useful correction is a check that discriminates better than the one given. If an entry's behaviour has changed in a newer version, say which version and cite it. Contributions are CC0 and the bar is in CONTRIBUTING.md."
+  }
 }

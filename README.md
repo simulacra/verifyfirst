@@ -104,6 +104,22 @@ Short enough to paste into a system prompt:
 > the work had failed, and report the observation rather than the conclusion.
 > Prefer resolved values over authored ones.
 
+## What this cannot see
+
+It is Unix- and web-heavy — of 74 cited sources, 19 are Linux man pages and 11
+are RFCs, and nothing comes from Windows, mobile, embedded, the JVM, or ML
+pipelines. The checks were reproduced on one machine. Most entries were written
+in a single day.
+
+And the deepest limit, which cannot be fixed from inside: **an entry exists only
+because somebody eventually noticed.** Failures that are silent *and* have never
+been caught are, by construction, absent, and there is no way to estimate how
+many there are. The registry's own instrument is "somebody noticed", and it is
+blind to exactly the thing it is about.
+
+Full statement: [verifyfirst.dev/limits](https://verifyfirst.dev/limits/). CI
+requires it to exist.
+
 ## The standard
 
 **Every entry is drawn from a failure that was actually observed and

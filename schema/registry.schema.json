@@ -16,7 +16,8 @@
     "entries",
     "principles",
     "symptoms",
-    "recipes"
+    "recipes",
+    "limits"
   ],
   "additionalProperties": false,
   "properties": {
@@ -209,6 +210,69 @@
               }
             }
           }
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "description": "The registry's own blind spots. Required: a reference about instruments that cannot see their limits must state its own.",
+      "required": [
+        "premise",
+        "out_of_scope",
+        "known_bias",
+        "how_to_correct"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "premise": {
+          "type": "string",
+          "minLength": 40
+        },
+        "out_of_scope": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "what",
+              "why"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "what": {
+                "type": "string"
+              },
+              "why": {
+                "type": "string",
+                "minLength": 30
+              }
+            }
+          }
+        },
+        "known_bias": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "what",
+              "detail"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "what": {
+                "type": "string"
+              },
+              "detail": {
+                "type": "string",
+                "minLength": 40
+              }
+            }
+          }
+        },
+        "how_to_correct": {
+          "type": "string",
+          "minLength": 30
         }
       }
     }

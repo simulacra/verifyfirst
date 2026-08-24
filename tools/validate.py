@@ -206,6 +206,20 @@ def validate(data: dict, r: Report, full: bool = True) -> None:
                     if g not in ids:
                         r.err(where, f"step {i} guards against unknown entry {g}")
 
+        lim = data.get("limits")
+        if not lim:
+            r.err("limits", "missing — this reference must state its own blind spots")
+        else:
+            for f in ["premise", "out_of_scope", "known_bias", "how_to_correct"]:
+                if not lim.get(f):
+                    r.err("limits", f"missing '{f}'")
+            for x in lim.get("out_of_scope", []):
+                if not x.get("what") or not x.get("why"):
+                    r.err("limits", "an out_of_scope item needs both 'what' and 'why'")
+            for x in lim.get("known_bias", []):
+                if not x.get("what") or not x.get("detail"):
+                    r.err("limits", "a known_bias item needs both 'what' and 'detail'")
+
         counts: dict = {}
         for e in data.get("entries", []):
             counts[e.get("instrument")] = counts.get(e.get("instrument"), 0) + 1
