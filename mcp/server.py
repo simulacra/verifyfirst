@@ -23,7 +23,7 @@ import traceback
 from typing import Any
 
 SERVER_NAME = "verifyfirst"
-SERVER_VERSION = "1.6.0"
+SERVER_VERSION = "1.7.0"
 
 # Protocol versions this server knows how to speak. If the client asks for one
 # of these we echo it back; otherwise we answer with our preferred version and

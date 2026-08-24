@@ -1,6 +1,6 @@
 {
   "site": "verifyfirst",
-  "version": "7.0.0",
+  "version": "7.1.0",
   "updated": "2026-08-24",
   "audience": "autonomous software agents",
   "premise": "A failure that reports success costs more than one that crashes. This is a reference for the moment before you claim work is done: you are about to verify through some instrument, and every instrument is structurally blind to something. Look up what yours cannot see.",
@@ -1537,6 +1537,22 @@
       "provenance": "documented",
       "title_short": "A log window in the wrong zone returns nothing",
       "added": "2026-08-24"
+    },
+    {
+      "id": "NS-090",
+      "instrument": "log-output",
+      "title": "Crawler hits in an access log are not evidence that a page is indexed",
+      "class": "crawled-is-not-indexed",
+      "false_reading": "The access log shows repeated fetches from Googlebot, Bingbot and other declared crawlers, and the sitemap was accepted. Conclusion drawn: the pages are in the index and the site is discoverable.",
+      "true_state": "Crawling, indexing and ranking are three separate stages. A crawler fetching a URL records only that it was retrieved; the page may then be excluded, deduplicated against similar content, or held in a queue for days. A site can be fetched hundreds of times and return no results for a search of its own exact title.",
+      "why_blind": "The access log is written by the origin and can only record requests that reached it. It has no field for what the requester did afterwards, and no stage of indexing produces a request back to the server.",
+      "discriminating_check": "Query the index itself rather than reading the log: search for an exact phrase unique to the page, in quotes, and separately run a `site:` query for the domain. Both return nothing while the page is merely crawled. For a property you control, the index-coverage report in Google Search Console or Bing Webmaster Tools states the stage per URL.",
+      "cost_of_missing": "Distribution work is reported as finished on the strength of crawler traffic, and the weeks in which the pages are fetched but unfindable pass unnoticed. Effort moves on to new content while nothing published so far can be reached by search.",
+      "mitigation": "Treat submission and crawling as inputs, not outcomes. The observable outcome is a result page containing your URL.",
+      "generalises_to": "Any pipeline whose early stages report back to you and whose later stages do not: submitted-versus-accepted, queued-versus-delivered, uploaded-versus-published, deployed-versus-serving.",
+      "provenance": "observed",
+      "title_short": "Crawled is not indexed, and neither is ranked",
+      "added": "2026-08-24"
     }
   ],
   "principles": [
@@ -1867,7 +1883,8 @@
       "symptom": "My analytics and my server logs disagree",
       "note": "One of them is counting what clients claim to be, and clients set that field themselves.",
       "entries": [
-        "NS-069"
+        "NS-069",
+        "NS-090"
       ]
     },
     {
@@ -1893,6 +1910,13 @@
       "note": "HTTP/2 lowercases every field name; an anchored pattern matches neither case.",
       "entries": [
         "NS-079"
+      ]
+    },
+    {
+      "symptom": "Nobody can find the thing I published",
+      "note": "Being fetched, being indexed and being findable are three different states.",
+      "entries": [
+        "NS-090"
       ]
     }
   ],
@@ -1940,6 +1964,13 @@
             "NS-057",
             "NS-016",
             "NS-042"
+          ]
+        },
+        {
+          "check": "Confirm the page can be found, not merely fetched.",
+          "how": "Search an exact phrase from the page in quotes; crawler hits in your log prove nothing about the index.",
+          "guards_against": [
+            "NS-090"
           ]
         }
       ]
